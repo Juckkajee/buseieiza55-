@@ -1,12 +1,12 @@
 {
-  "tag": "busv1",
-  "title": "Figma Version 12 — App.tsx",
-  "savedDate": "2026-09-21",
+  "tag": "busv2",
+  "title": "Figma Version 13 — App.tsx",
+  "savedDate": "2026-09-22",
   "kind": "partial-source-snapshot",
   "sources": [
     {
-      "file": "backups/version-12-App.tsx",
-      "sha256": "f5af64ae5a3dd23646a499f5ff2f6a6bcfe1ddd50b6ed6be7d0266d528170cde"
+      "file": "backups/version-13-App.tsx",
+      "sha256": "149abe14a941e18970a64b28d2f2d6cc321a9989272e8504651587868a5fa17c"
     }
   ],
   "historyReconstructedFromSavedFiles": true,

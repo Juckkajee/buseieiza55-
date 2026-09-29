@@ -1,3 +1,4 @@
+import DriverDashboard from "../DriverDashboard";
 import { useState } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -1320,86 +1321,7 @@ function AdminVehicles() {
 // ─── DRIVER VIEW ─────────────────────────────────────────────────────────────
 
 function DriverView() {
-  const mySchedule = [
-    ...ROUTES_DATA[0].schedule.filter(s => s.driver === "สมชาย ใจดี").map(s => ({ ...s, route: ROUTES_DATA[0] })),
-    ...ROUTES_DATA[2].schedule.filter(s => s.driver === "สมชาย ใจดี").map(s => ({ ...s, route: ROUTES_DATA[2] })),
-  ].sort((a, b) => a.time.localeCompare(b.time));
-
-  const [activeRound, setActiveRound] = useState<string | null>(null);
-
-  const passengers = [
-    { name: "นายกิตติ สุขใจ", from: "มหาวิทยาลัยฯ", to: "Big C หนองจอก", seats: 2, checkin: true },
-    { name: "นางสาวมาลี ดีงาม", from: "มหาวิทยาลัยฯ", to: "โลตัสหนองจอก", seats: 1, checkin: false },
-    { name: "นายวิชัย สุขสันต์", from: "มหาวิทยาลัยฯ", to: "โรงพยาบาลหนองจอก", seats: 1, checkin: true },
-  ];
-
-  return (
-    <div className="p-8">
-      <SectionTitle>ตารางงานของฉัน — สมชาย ใจดี</SectionTitle>
-      <div className="grid grid-cols-2 gap-6">
-        <div>
-          <p className="mono text-[10px] text-[#555] tracking-widest mb-4">รอบที่ได้รับมอบหมายวันนี้</p>
-          <div className="space-y-3">
-            {mySchedule.map((s, i) => (
-              <button
-                key={i}
-                onClick={() => setActiveRound(activeRound === `${s.round}-${s.route.id}` ? null : `${s.round}-${s.route.id}`)}
-                className={`w-full text-left border p-4 transition-colors ${activeRound === `${s.round}-${s.route.id}` ? "border-[#f5a623] bg-[#f5a623]/5" : "border-[#2a2a2a] hover:border-[#444]"}`}
-              >
-                <div className="flex justify-between items-center">
-                  <div>
-                    <p className="mono text-[#f5a623] font-bold text-xl">{s.time} น.</p>
-                    <p className="text-sm font-semibold mt-0.5">{s.route.name}</p>
-                    <p className="text-xs text-[#888]">{s.vehicle} · {s.type} {s.seats} ที่นั่ง</p>
-                  </div>
-                  <Chip label={i === 0 ? "ถัดไป" : "รอดำเนินการ"} color={i === 0 ? "amber" : "gray"} />
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <p className="mono text-[10px] text-[#555] tracking-widest mb-4">ผู้โดยสารในรอบถัดไป (09:30)</p>
-          <div className="border border-[#2a2a2a] mb-4">
-            {passengers.map((p, i) => (
-              <div key={i} className="border-b border-[#1a1a1a] last:border-0 px-4 py-3 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold">{p.name}</p>
-                  <p className="text-xs text-[#888]">{p.from} → {p.to} ({p.seats} ที่)</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Chip label={p.checkin ? "Check-in แล้ว" : "รอ Check-in"} color={p.checkin ? "green" : "gray"} />
-                  {!p.checkin && (
-                    <button className="mono text-[10px] bg-[#f5a623] text-[#0a0a0a] px-2 py-1 font-bold">
-                      SCAN QR
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="border border-[#2a2a2a] p-4 bg-[#111]">
-            <p className="mono text-[10px] text-[#555] tracking-widest mb-3">สรุปรอบ 09:30</p>
-            <div className="grid grid-cols-3 gap-3 text-center">
-              <div>
-                <p className="font-black text-2xl text-[#f5a623]">{passengers.reduce((s, p) => s + p.seats, 0)}</p>
-                <p className="text-[10px] text-[#555]">ที่จอง</p>
-              </div>
-              <div>
-                <p className="font-black text-2xl text-[#2ecc71]">{passengers.filter(p => p.checkin).reduce((s, p) => s + p.seats, 0)}</p>
-                <p className="text-[10px] text-[#555]">Check-in</p>
-              </div>
-              <div>
-                <p className="font-black text-2xl text-[#e74c3c]">{passengers.filter(p => !p.checkin).reduce((s, p) => s + p.seats, 0)}</p>
-                <p className="text-[10px] text-[#555]">รอ</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  return <DriverDashboard routes={ROUTES_DATA} driverName="สมชาย ใจดี" />;
 }
 
 // ─── REPORTS ──────────────────────────────────────────────────────────────────
