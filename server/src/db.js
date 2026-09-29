@@ -1,7 +1,7 @@
 import oracledb from "oracledb"
 oracledb.outFormat = oracledb.OUT_FORMAT_OBJECT
 let pool
-export const capabilities = { vehicleExtras: false, tripEvents: false }
+export const capabilities = { vehicleExtras: false, tripEvents: false, readableIds: false }
 const camel = (key) =>
   key.toLowerCase().replace(/_([a-z])/g, (_, c) => c.toUpperCase())
 export async function query(db, sql, binds = {}) {
@@ -27,6 +27,7 @@ export async function connect() {
     queueTimeout: 15000,
   })
   await read(async (db) => {
+    capabilities.readableIds = (await query(db, "SELECT COUNT(*) n FROM user_sequences WHERE sequence_name IN ('BUS_SEQ_EMPLOYEE','BUS_SEQ_USER','BUS_SEQ_BOOKING','BUS_SEQ_VEHICLE','BUS_SEQ_ROUTE','BUS_SEQ_STOP','BUS_SEQ_ROUTE_STOP','BUS_SEQ_TRIP','BUS_SEQ_POSITION')"))[0].n === 9
     capabilities.vehicleExtras =
       (
         await query(

@@ -1,6 +1,7 @@
 import { query, read, transaction, capabilities, ts } from "./db.js"
 import { guard, allowed, uniqueUsername } from "./auth.js"
 import { assertEmployeeDelete, assertEmployeeEdit } from "./employee-policy.js"
+import { nextRecordId } from "./record-ids.js"
 import {
   requireThat,
   text,
@@ -275,7 +276,7 @@ export function catalogRoutes(app) {
   )
   async function saveEmployee(b, employeeId) {
     const binds = {
-      employeeId: employeeId || id("E"),
+      employeeId: employeeId || null,
       fullName: text(b.fullName, "ชื่อ–นามสกุล"),
       username: text(b.username, "Username", 100).toLowerCase(),
       phone: optional(b.phone, "เบอร์โทร", 30),
@@ -290,6 +291,7 @@ export function catalogRoutes(app) {
     if (!employeeId || b.password)
       binds.passwordHash = await hashPassword(b.password)
     return transaction(async (db) => {
+      if (!employeeId) binds.employeeId = await nextRecordId(db, "E")
       await uniqueUsername(db, binds.username, binds.employeeId)
       if (employeeId) {
         const [e] = await query(
@@ -352,7 +354,7 @@ export function catalogRoutes(app) {
   )
   async function saveVehicle(b, vehicleId) {
     const binds = {
-      vehicleId: vehicleId || id("V"),
+      vehicleId: vehicleId || null,
       licensePlate: text(b.licensePlate, "ทะเบียน", 30),
       vehicleType: text(b.vehicleType, "ประเภทรถ", 50),
       seatCount: integer(b.seatCount, "จำนวนที่นั่ง", 1, 100),
@@ -367,6 +369,7 @@ export function catalogRoutes(app) {
       })
     return transaction(async (db) => {
       await db.execute("LOCK TABLE BUS_TRIP_ROUNDS IN SHARE ROW EXCLUSIVE MODE")
+      if (!vehicleId) binds.vehicleId = await nextRecordId(db, "V")
       if (vehicleId) {
         const [current] = await query(
           db,
@@ -436,13 +439,14 @@ export function catalogRoutes(app) {
     },
   )
   app.post("/api/routes", guard("admin-routes", true), async (req, res) => {
-    const routeId = id("R")
-    await transaction((db) =>
-      db.execute(
+    const routeId = await transaction(async (db) => {
+      const routeId = await nextRecordId(db, "R")
+      await db.execute(
         "INSERT INTO BUS_ROUTES(route_id,route_name,total_minutes) VALUES(:routeId,:routeName,0)",
         { routeId, routeName: text(req.body.routeName, "ชื่อเส้นทาง", 150) },
-      ),
-    )
+      )
+      return routeId
+    })
     res.json({ routeId })
   })
   app.put("/api/routes/:id", guard("admin-routes", true), async (req, res) => {
@@ -521,7 +525,7 @@ export function catalogRoutes(app) {
         { stopName },
       )
       if (!stop) {
-        stop = { stopId: id("S") }
+        stop = { stopId: await nextRecordId(db, "S") }
         await db.execute(
           "INSERT INTO BUS_STOPS(stop_id,stop_name) VALUES(:stopId,:stopName)",
           { stopId: stop.stopId, stopName },
@@ -537,7 +541,7 @@ export function catalogRoutes(app) {
         )
         if (entry.stopId !== stop.stopId) await removeUnusedStops(db, [entry.stopId])
       } else {
-        const newId = id("RS")
+        const newId = await nextRecordId(db, "RS")
         let index = ordered.length
         if (b.anchorId) {
           const anchor = ordered.findIndex((s) => s.routeStopId === b.anchorId)
@@ -608,7 +612,7 @@ export function catalogRoutes(app) {
           "LOCK TABLE BUS_TRIP_ROUNDS IN SHARE ROW EXCLUSIVE MODE",
         )
         const binds = await validateTrip(db, req.body)
-        binds.tripId = id("T")
+        binds.tripId = await nextRecordId(db, "T")
         await db.execute(
           `INSERT INTO BUS_TRIP_ROUNDS(trip_id,route_id,driver_employee_id,vehicle_id,departure_at,status) VALUES(:tripId,:routeId,:driverEmployeeId,:vehicleId,TO_TIMESTAMP(:departureAt,'YYYY-MM-DD"T"HH24:MI:SS'),'SCHEDULED')`,
           binds,
@@ -799,13 +803,14 @@ export function catalogRoutes(app) {
     "/api/positions",
     guard("admin-permissions", true),
     async (req, res) => {
-      const positionId = id("POS")
-      await transaction((db) =>
-        db.execute(
+      const positionId = await transaction(async (db) => {
+        const positionId = await nextRecordId(db, "POS")
+        await db.execute(
           "INSERT INTO BUS_POSITIONS(position_id,position_name) VALUES(:positionId,:name)",
           { positionId, name: text(req.body.positionName, "ชื่อตำแหน่ง", 100) },
-        ),
-      )
+        )
+        return positionId
+      })
       res.json({ positionId })
     },
   )

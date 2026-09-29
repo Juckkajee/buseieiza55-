@@ -1,11 +1,11 @@
 import { randomBytes } from "node:crypto"
 import { query, read, transaction } from "./db.js"
+import { nextRecordId } from "./record-ids.js"
 import {
   HttpError,
   requireThat,
   text,
   optional,
-  id,
   hashPassword,
   verifyPassword,
 } from "./domain.js"
@@ -132,7 +132,7 @@ export function authRoutes(app) {
     rateLimit(req)
     const b = req.body
     const binds = {
-      userId: id("U"),
+      userId: null,
       fullName: text(b.fullName, "ชื่อ–นามสกุล"),
       username: text(b.username, "ชื่อผู้ใช้", 100).toLowerCase(),
       phone: optional(b.phone, "เบอร์โทร", 30),
@@ -145,6 +145,7 @@ export function authRoutes(app) {
     )
     const user = await transaction(async (db) => {
       await uniqueUsername(db, binds.username)
+      binds.userId = await nextRecordId(db, "U")
       await db.execute(
         "INSERT INTO BUS_USERS(user_id,full_name,username,password_hash,phone,user_type) VALUES(:userId,:fullName,:username,:passwordHash,:phone,:userType)",
         binds,

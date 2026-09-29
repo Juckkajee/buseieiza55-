@@ -10,6 +10,7 @@ import {
 } from "../src/db.js"
 import { hashPassword, bangkokNow } from "../src/domain.js"
 import { createApp } from "../src/index.js"
+import { nextRecordId } from "../src/record-ids.js"
 
 // Integration fixtures use unique IDs. Cleanup only removes IDs owned by this run.
 const prefix = "QA" + randomUUID().slice(0, 8),
@@ -56,6 +57,15 @@ const nextDay = new Date(Date.now() + 7 * 3600000 + 86400000)
   .slice(0, 10)
 try {
   await connect()
+  if (capabilities.readableIds) await check("Oracle sequences allocate distinct IDs concurrently and do not reuse rolled-back IDs", async () => {
+    const ids = await Promise.all(Array.from({length:4}, () => transaction(db=>nextRecordId(db,"R"))))
+    assert.equal(new Set(ids).size,4)
+    for (const value of ids) assert.match(value,/^R[0-9]{3,}$/)
+    let rolledBack
+    try { await transaction(async db=>{rolledBack=await nextRecordId(db,"R"); throw new Error("intentional ID rollback")}) } catch (e) {assert.equal(e.message,"intentional ID rollback")}
+    const next=await transaction(db=>nextRecordId(db,"R"))
+    assert.ok(Number(next.slice(1))>Number(rolledBack.slice(1)))
+  })
   await transaction(async (db) => {
     for (const positionId of ["ADMIN", "DRIVER"])
       if (

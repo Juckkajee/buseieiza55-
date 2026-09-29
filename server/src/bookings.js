@@ -1,5 +1,6 @@
 import { query, read, transaction, ts, capabilities } from "./db.js"
 import { guard } from "./auth.js"
+import { nextRecordId } from "./record-ids.js"
 import {
   requireThat,
   text,
@@ -86,7 +87,7 @@ export async function createBookings(db, userId, items, now = Date.now()) {
       "บางที่นั่งถูกจองแล้ว กรุณาเลือกที่นั่งใหม่ รายการชุดนี้ยังไม่ถูกบันทึก",
       409,
     )
-    const bookingId = id("BK")
+    const bookingId = await nextRecordId(db, "BK")
     await db.execute(
       "INSERT INTO BUS_BOOKINGS(booking_id,trip_id,user_id,status) VALUES(:bookingId,:tripId,:userId,'CONFIRMED')",
       { bookingId, tripId: trip.tripId, userId },

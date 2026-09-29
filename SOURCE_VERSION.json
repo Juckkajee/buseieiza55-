@@ -1,12 +1,12 @@
 {
-  "tag": "busv9",
-  "title": "แก้การลบจุดจอดและป้องกัน Admin หลัก",
+  "tag": "busv10",
+  "title": "เตรียมระบบรหัสเรียงและ SQL สำหรับตรวจ",
   "savedDate": "2026-09-28",
   "kind": "source-archive",
   "sources": [
     {
-      "file": "deliverables/MUT-Shuttle-Web-2026-09-28-fix-stops-admin.zip",
-      "sha256": "9d0db7276027092d9a918a0dc1618dc98e65a7196c403827776ecd261d28622d"
+      "file": "deliverables/MUT-Shuttle-Web-2026-09-28-readable-ids-ready.zip",
+      "sha256": "2758633fc2e815ee57078f65c0315952bbe4bd5bf416a41817ad7bd4c2a61f12"
     }
   ],
   "historyReconstructedFromSavedFiles": true,
