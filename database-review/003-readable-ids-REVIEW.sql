@@ -1,4 +1,5 @@
--- REVIEW: running IDs for new records only; existing IDs are NOT changed.
+-- Approved and installed on the current database: 2026-09-29. DO NOT run again there.
+-- Running IDs for new records only; existing IDs are NOT changed.
 -- Adds 9 Oracle SEQUENCE objects. No table, column, PK or FK is changed.
 -- Examples: E006, U002, BK001, V006, R004, S007, RS001, T001, POS001.
 -- Start after the largest existing ID matching PREFIX + digits.

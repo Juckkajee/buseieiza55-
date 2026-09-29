@@ -42,10 +42,6 @@ try {
     !capabilities.bookingCancellation
   )
     throw Error("Approved migrations 002 and 004 must already be installed")
-  if (capabilities.readableIds)
-    throw Error(
-      "Sequence IDs are enabled. Reserve IDs from sequences before adapting this one-time import.",
-    )
   const existing = await read((db) =>
     query(
       db,
@@ -69,6 +65,10 @@ try {
         "Demo usernames already exist; inspect the private manifest before retrying. No rows changed.",
       )
   } else {
+    if (capabilities.readableIds)
+      throw Error(
+        "For a new demo batch, import it before installing SQL 003. Existing demo batches are never imported again.",
+      )
     let hashes = []
     if (apply) {
       const password = process.env.DEMO_PASSWORD

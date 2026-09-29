@@ -6,7 +6,7 @@
 -- หากพบชื่อเดิม จะหยุดส่วนสร้างทั้งหมดก่อนทำ DDL ไม่ลบ/เขียนทับตารางเดิม
 -- Oracle DDL auto-commit: หากผิดพลาดกลางทางให้ตรวจโครงสร้างก่อนรันใหม่
 -- ไม่มีรหัสผ่าน ข้อมูลบัญชี ตัวอย่างข้อมูล หรือคำสั่ง DROP/TRUNCATE
--- รวมเฉพาะโครงสร้างที่อนุมัติแล้ว ไม่รวม 003-readable-ids-REVIEW.sql ซึ่งยังรออนุมัติ
+-- SQL 003 อนุมัติแล้ว: รันแยกหลังนำเข้าข้อมูลเริ่มต้น เพื่อเริ่ม Sequence ต่อจากข้อมูลนั้น
 
 -- PART 1: READ-ONLY NAME CHECK (original file)
 -- READ ONLY: run using the SAME Oracle login that would create the BUS_ tables.
