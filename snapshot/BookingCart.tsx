@@ -1,3 +1,4 @@
+import { useConfirm } from "./Confirmation";
 import { useState, type ComponentType } from "react";
 
 type Round = { round: number; time: string; driver: string; vehicle: string; type: string; seats: number };
@@ -8,9 +9,11 @@ const gold = "bg-[#f5a623] text-[#111] hover:bg-[#ffb940] disabled:opacity-40 di
 const outline = "border border-[#454545] px-3 py-2 text-sm hover:border-[#f5a623] disabled:opacity-40";
 const field = "w-full bg-[#161818] border border-[#454545] p-3 text-sm text-[#eee]";
 
-export default function BookingCart({ routes, initialOccupied, initialBookings, userName, QrCode }: {
+export default function BookingCart({ routes, initialOccupied, initialBookings, userName, QrCode, view }: {
+  view: "booking" | "cancellations";
   routes: Route[]; initialOccupied: Record<string, number[]>; initialBookings: Booking[]; userName: string; QrCode: ComponentType;
 }) {
+  const ask = useConfirm();
   const [routeId, setRouteId] = useState<number | null>(null);
   const [from, setFrom] = useState(-1);
   const [to, setTo] = useState(-1);
@@ -66,7 +69,20 @@ export default function BookingCart({ routes, initialOccupied, initialBookings, 
       {[ ["จุดขึ้น",b.from], ["จุดลง",b.to], ["รอบเดินรถ",`${n?.time} น. · รอบ ${b.round}`], ["รถ",`${n?.vehicle} · ${n?.type}`], ["คนขับ",n?.driver], ["ที่นั่ง",`${b.seatNumbers.join(", ")} (${b.seats} ที่นั่ง)`] ].map(([k,v]) => <div key={k} className="flex gap-4 justify-between"><dt className="shrink-0 text-[#888]">{k}</dt><dd className="text-right break-words">{v}</dd></div>)}
     </dl>;
   }
-  const history = bookings.filter(b => b.user === userName);
+  const history = bookings.filter(b => b.user === userName && b.status === "confirmed");
+  const cancelled = bookings.filter(b => b.user === userName && b.status === "cancelled");
+  if (view === "cancellations") return <div className="p-5 xl:p-8 text-[#eee]">
+    <h1 className="text-2xl font-bold border-l-4 border-[#f5a623] pl-3">ประวัติการยกเลิก</h1>
+    <p className="text-sm text-[#999] mt-3 mb-6">รายการจองที่ยกเลิกแล้วทั้งหมด {cancelled.length} รายการ</p>
+    {!cancelled.length ? <div className="border border-dashed border-[#444] p-10 text-center text-[#999]">ยังไม่มีประวัติการยกเลิก</div> :
+      <div className="grid gap-4 lg:grid-cols-2">{cancelled.map(b => <article key={b.id} className="p-5 border border-[#444] bg-[#202222]">
+        <button className="w-full text-left" aria-expanded={expanded===b.id} onClick={()=>setExpanded(expanded===b.id?null:b.id)}>
+          <span className="flex justify-between gap-3 text-sm"><b className="text-[#f5a623]">{b.id}</b><span className="text-red-300">ยกเลิกแล้ว</span></span>
+          <span className="block mt-3">เส้นทางที่ {b.route} · ที่นั่ง {b.seatNumbers.join(", ")}</span>
+          <span className="block text-xs text-[#999] mt-2">จองเมื่อ {b.bookedAt} · {expanded===b.id?"ซ่อนรายละเอียด ▴":"ดูรายละเอียด ▾"}</span>
+        </button>{expanded===b.id && details(b)}
+      </article>)}</div>}
+  </div>;
   return <div className="p-5 xl:p-8 text-[#eee]">
     <h1 className="text-2xl font-bold border-l-4 border-[#f5a623] pl-3">จองรถรับ–ส่ง</h1>
     <p className="text-sm text-[#999] mt-2 mb-6">เลือกเส้นทางและที่นั่ง → เพิ่มรายการ → ยืนยันการจอง</p>
@@ -115,7 +131,7 @@ export default function BookingCart({ routes, initialOccupied, initialBookings, 
             <div className="space-y-3">{cart.map((b,i) => <article key={b.id} className="border border-[#494438] p-3 bg-[#1b1d1d]">
               <div className="flex items-start gap-2"><input aria-label={`เลือกรายการ ${i+1}`} type="checkbox" className="accent-[#f5a623] mt-1" checked={selected.includes(b.id)} onChange={e=>setSelected(prev=>e.target.checked?[...prev,b.id]:prev.filter(id=>id!==b.id))}/><button className="flex-1 text-left text-sm" aria-expanded={expanded===b.id} onClick={()=>setExpanded(expanded===b.id?null:b.id)}><strong>เส้นทางที่ {b.route} · {routes.find(r=>r.id===b.route)?.schedule.find(n=>n.round===b.round)?.time} น.</strong><span className="block text-xs text-[#aaa] mt-1">ที่นั่ง {b.seatNumbers.join(", ")} · {expanded===b.id?"ซ่อนรายละเอียด ▴":"ดูรายละเอียด ▾"}</span></button></div>
               {expanded===b.id && details(b)}
-              <div className="flex justify-between mt-3 gap-2"><button className="text-xs text-[#aaa] hover:text-red-300" onClick={()=>{setCart(prev=>prev.filter(x=>x.id!==b.id));setSelected(prev=>prev.filter(id=>id!==b.id));}}>ลบรายการ</button><button className="text-xs text-[#f5a623]" onClick={()=>confirm([b.id])}>ยืนยันรายการนี้</button></div>
+              <div className="flex justify-between mt-3 gap-2"><button className="text-xs text-[#aaa] hover:text-red-300" onClick={async ()=>{if (!await ask("ยืนยันการลบ", `ลบรายการรอยืนยัน เส้นทางที่ ${b.route} ที่นั่ง ${b.seatNumbers.join(", ")} ใช่หรือไม่?`)) return; setCart(prev=>prev.filter(x=>x.id!==b.id));setSelected(prev=>prev.filter(id=>id!==b.id));}}>ลบรายการ</button><button className="text-xs text-[#f5a623]" onClick={()=>confirm([b.id])}>ยืนยันรายการนี้</button></div>
             </article>)}</div>
             <p className="text-xs text-[#bbb] mt-4 mb-3">เลือก {selected.length} รายการ · {cart.filter(b=>selected.includes(b.id)).reduce((sum,b)=>sum+b.seats,0)} ที่นั่ง</p>
             <button className={`${gold} w-full`} disabled={!selected.length} onClick={()=>confirm(selected)}>ยืนยันที่เลือก ({selected.length})</button>
@@ -123,10 +139,11 @@ export default function BookingCart({ routes, initialOccupied, initialBookings, 
           </>}
         </section>
         <section className="border border-[#3c3c3c] p-4">
-          <h2 className="font-bold mb-4">ประวัติการจองของฉัน <span className="text-[#999] text-sm">({history.length})</span></h2>
+          <h2 className="font-bold mb-4">การจองที่ยืนยันแล้ว <span className="text-[#999] text-sm">({history.length})</span></h2>
+          {!history.length && <p className="text-sm text-[#999] py-4">ยังไม่มีการจองที่ยืนยันแล้ว</p>}
           <div className="space-y-3">{history.map(b=><article key={b.id} className="border border-[#3c3c3c] p-3">
             <button className="w-full text-left" aria-expanded={expanded===b.id} onClick={()=>setExpanded(expanded===b.id?null:b.id)}><span className="flex justify-between gap-2 text-xs"><b className="text-[#f5a623]">{b.id}</b><span className={b.status==="confirmed"?"text-green-400":"text-[#888]"}>{b.status==="confirmed"?"ยืนยันแล้ว":"ยกเลิกแล้ว"}</span></span><span className="block mt-2 text-sm">เส้นทางที่ {b.route} · ที่นั่ง {b.seatNumbers.join(", ")}</span><span className="block text-xs text-[#888] mt-1">{b.bookedAt} · ดูรายละเอียด {expanded===b.id?"▴":"▾"}</span></button>
-            {expanded===b.id && <>{details(b)}{b.status==="confirmed" && <div className="mt-4 flex justify-between gap-3 items-center"><QrCode/><button className="text-xs text-red-300" onClick={()=>{setBookings(prev=>prev.map(x=>x.id===b.id?{...x,status:"cancelled"}:x));setMessage("ยกเลิกการจองแล้ว คืนที่นั่งให้เลือกได้อีกครั้ง");}}>ยกเลิกการจอง</button></div>}</>}
+            {expanded===b.id && <>{details(b)}{b.status==="confirmed" && <div className="mt-4 flex justify-between gap-3 items-center"><QrCode/><button className="text-xs text-red-300" onClick={async ()=>{if (!await ask("ยืนยันการยกเลิกการจอง", `ยกเลิกการจอง ${b.id} และคืนที่นั่งใช่หรือไม่?`)) return; setBookings(prev=>prev.map(x=>x.id===b.id?{...x,status:"cancelled"}:x));setMessage("ยกเลิกการจองแล้ว คืนที่นั่งให้เลือกได้อีกครั้ง");}}>ยกเลิกการจอง</button></div>}</>}
           </article>)}</div>
         </section>
       </aside>

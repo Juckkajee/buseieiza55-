@@ -1,3 +1,4 @@
+import ConfirmationProvider, { useConfirm } from "../Confirmation";
 import BookingCart from "../BookingCart";
 import DriverDashboard from "../DriverDashboard";
 import { useState } from "react";
@@ -122,7 +123,7 @@ const REPORT2_DATA = [
 ];
 
 type Role = "admin" | "user" | "driver";
-type Page = "login" | "booking" | "admin-routes" | "admin-schedule" | "admin-employees" | "admin-permissions" | "admin-vehicles" | "driver" | "reports";
+type Page = "login" | "booking" | "cancellations" | "admin-routes" | "admin-schedule" | "admin-employees" | "admin-permissions" | "admin-vehicles" | "driver" | "reports";
 
 // ─── SHARED COMPONENTS ───────────────────────────────────────────────────────
 
@@ -186,6 +187,7 @@ function Sidebar({ role, page, setPage, setRole, user }: {
   ];
   const userNav = [
     { label: "จองรถ", page: "booking" as Page, icon: "🎫" },
+    { label: "ประวัติการยกเลิก", page: "cancellations" as Page, icon: "↩" },
   ];
   const driverNav = [
     { label: "ตารางงานของฉัน", page: "driver" as Page, icon: "🚌" },
@@ -364,8 +366,8 @@ function QRBlock() {
   );
 }
 
-function BookingPage() {
-  return <BookingCart routes={ROUTES_DATA} initialOccupied={INITIAL_OCCUPIED_SEATS} initialBookings={BOOKINGS_MOCK} userName="นายกิตติ สุขใจ" QrCode={QRBlock} />;
+function BookingPage({ view }: { view: "booking" | "cancellations" }) {
+  return <BookingCart view={view} routes={ROUTES_DATA} initialOccupied={INITIAL_OCCUPIED_SEATS} initialBookings={BOOKINGS_MOCK} userName="นายกิตติ สุขใจ" QrCode={QRBlock} />;
 }
 
 // ─── ADMIN: ROUTES ────────────────────────────────────────────────────────────
@@ -374,6 +376,7 @@ type Stop = { name: string; min: number | null };
 type RouteEntry = typeof ROUTES_DATA[number] & { stops: Stop[] };
 
 function AdminRoutes() {
+  const confirm = useConfirm();
   const [routes, setRoutes] = useState<RouteEntry[]>(ROUTES_DATA.map(r => ({ ...r, stops: r.stops.map(s => ({ ...s })) })));
   const [activeRoute, setActiveRoute] = useState(1);
   const route = routes.find(r => r.id === activeRoute)!;
@@ -391,7 +394,7 @@ function AdminRoutes() {
   const insertIndex = route.stops.length ? stopAnchor + (stopSide === "after" ? 1 : 0) : 0;
   const [editRoundId, setEditRoundId] = useState<number | null>(null);
   const [roundError, setRoundError] = useState("");
-  const [deleteRoundId, setDeleteRoundId] = useState<number | null>(null);
+  const [, setDeleteRoundId] = useState<number | null>(null);
   const [deletedRound, setDeletedRound] = useState<{ routeId: number; value: RouteEntry["schedule"][number] } | null>(null);
 
   const [showAddRound, setShowAddRound] = useState(false);
@@ -408,22 +411,25 @@ function AdminRoutes() {
     }));
   };
 
-  const deleteStop = (idx: number) => {
+  const deleteStop = async (idx: number) => {
+    if (!await confirm("ยืนยันการลบ", `ต้องการลบจุดจอด ${idx + 1}. ${route.stops[idx].name} ใช่หรือไม่?`)) return;
     updateRoute(activeRoute, r => ({ ...r, stops: r.stops.filter((_, i) => i !== idx) }));
     setEditStopIdx(null); setShowAddStop(false); setStopError("");
   };
 
-  const startEditStop = (idx: number) => {
+  const startEditStop = async (idx: number) => {
+    if (!await confirm("ยืนยันการแก้ไข", `ต้องการแก้ไขจุดจอด ${idx + 1}. ${route.stops[idx].name} ใช่หรือไม่?`)) return;
     setStopError(""); setShowAddStop(false); setEditStopIdx(idx);
     setEditStopName(route.stops[idx].name);
     setEditStopMin(route.stops[idx].min?.toString() ?? "");
   };
 
-  const saveEditStop = () => {
+  const saveEditStop = async () => {
     if (editStopIdx === null) return;
     if (!editStopName.trim() || (editStopIdx > 0 && (!Number.isInteger(Number(editStopMin)) || Number(editStopMin) < 1))) {
       setStopError("กรอกชื่อจุดจอดและเวลาเดินทางเป็นจำนวนนาทีมากกว่า 0"); return;
     }
+    if (!await confirm("ยืนยันการแก้ไข", `บันทึกจุดจอด ${editStopName.trim()} ใช่หรือไม่?`)) return;
     updateRoute(activeRoute, r => ({
       ...r, stops: r.stops.map((stop, i) => i === editStopIdx ? { name: editStopName.trim(), min: i === 0 ? null : Number(editStopMin) } : stop),
     }));
@@ -453,12 +459,13 @@ function AdminRoutes() {
     });
     setNewStopName(""); setNewStopMin(""); setShowAddStop(false); setStopError("");
   };
-  const openRound = (round?: RouteEntry["schedule"][number]) => {
+  const openRound = async (round?: RouteEntry["schedule"][number]) => {
+    if (round && !await confirm("ยืนยันการแก้ไข", `ต้องการแก้ไขรอบ ${round.round} เวลา ${round.time} น. ใช่หรือไม่?`)) return;
     setEditRoundId(round?.round ?? null); setRoundTime(round?.time ?? "");
     setRoundDriver(round?.driver ?? ""); setRoundVehicle(round?.vehicle ?? "");
     setRoundError(""); setDeleteRoundId(null); setShowAddRound(true);
   };
-  const addRound = () => {
+  const addRound = async () => {
     const vehicle = INITIAL_VEHICLES.find(v => v.plate === roundVehicle);
     if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(roundTime) || !roundDriver || !vehicle) {
       setRoundError("กรุณาระบุเวลา คนขับ และรถให้ครบ"); return;
@@ -477,6 +484,7 @@ function AdminRoutes() {
       });
     });
     if (conflict) { setRoundError(`เวลาใช้งานคนขับหรือรถซ้อนกับ ${conflict.route.name} รอบ ${conflict.round} (${conflict.time} น.)`); return; }
+    if (editRoundId !== null && !await confirm("ยืนยันการแก้ไข", `บันทึกรอบ ${editRoundId} เวลา ${roundTime} น. ใช่หรือไม่?`)) return;
     updateRoute(activeRoute, r => {
       const nextRound = { round: editRoundId ?? Math.max(0, ...r.schedule.map(s => s.round)) + 1,
         time: roundTime, driver: roundDriver, vehicle: vehicle.plate, type: vehicle.type, seats: vehicle.seats };
@@ -484,9 +492,10 @@ function AdminRoutes() {
     });
     setShowAddRound(false); setEditRoundId(null); setRoundError("");
   };
-  const deleteRound = (id: number) => {
+  const deleteRound = async (id: number) => {
     const value = route.schedule.find(round => round.round === id);
     if (!value) return;
+    if (!await confirm("ยืนยันการลบ", `ต้องการลบรอบ ${id} เวลา ${value.time} น. ใช่หรือไม่?`)) return;
     setDeletedRound({ routeId: activeRoute, value });
     updateRoute(activeRoute, r => ({ ...r, schedule: r.schedule.filter(round => round.round !== id) }));
     setDeleteRoundId(null); if (editRoundId === id) setShowAddRound(false);
@@ -604,9 +613,8 @@ function AdminRoutes() {
                 <div className="flex flex-wrap items-center gap-3">
                   <Chip label={`รอบ ${s.round}`} color="gray" />
                   <button aria-label={`แก้ไขรอบ ${s.round} เวลา ${s.time}`} onClick={() => openRound(s)} className="text-xs text-[#f5a623] hover:underline">แก้ไข</button>
-                  <button aria-label={`ลบรอบ ${s.round} เวลา ${s.time}`} onClick={() => { setDeleteRoundId(s.round); setDeletedRound(null); }} className="text-xs text-[#ed827a] hover:underline">ลบ</button>
+                  <button aria-label={`ลบรอบ ${s.round} เวลา ${s.time}`} onClick={() => deleteRound(s.round)} className="text-xs text-[#ed827a] hover:underline">ลบ</button>
                 </div>
-                {deleteRoundId === s.round && <div className="w-full flex flex-wrap items-center gap-3 border-t border-[#333] pt-3 text-xs"><span>ลบรอบ {s.round} เวลา {s.time} น.?</span><button onClick={() => deleteRound(s.round)} className="px-3 py-1.5 bg-[#b63c35] text-white">ยืนยันลบรอบ</button><button onClick={() => setDeleteRoundId(null)} className="text-[#aaa]">ยกเลิกการลบ</button></div>}
               </div>
             ))}
           </div>
@@ -723,6 +731,7 @@ function AdminSchedule() {
 // ─── ADMIN: EMPLOYEES ────────────────────────────────────────────────────────
 
 function AdminEmployees() {
+  const confirm = useConfirm();
   const [showForm, setShowForm] = useState(false);
   const [empName, setEmpName] = useState("");
   const [empDept, setEmpDept] = useState("");
@@ -733,20 +742,28 @@ function AdminEmployees() {
   const [empPassword, setEmpPassword] = useState("");
   const [employees, setEmployees] = useState<(typeof EMPLOYEES[number] & { email?: string; username?: string; hasPassword?: boolean })[]>([...EMPLOYEES]);
   const [employeeError, setEmployeeError] = useState("");
+  const [editingEmployee, setEditingEmployee] = useState<string | null>(null);
+  const openEmployee = (employee?: typeof employees[number]) => {
+    setEditingEmployee(employee?.id ?? null);
+    setEmpName(employee?.name ?? ""); setEmpDept(employee?.dept ?? ""); setEmpRole(employee?.role ?? "");
+    setEmpPhone(employee?.phone ?? ""); setEmpEmail(employee?.email ?? ""); setEmpUsername(employee?.username ?? "");
+    setEmpPassword(""); setEmployeeError(""); setShowForm(true);
+  };
 
   const deptCode = DEPT_MAP[empDept] ?? "";
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!empName.trim() || !empDept || !empRole) { setEmployeeError("กรุณากรอกชื่อ แผนก และตำแหน่ง"); return; }
     if (empEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(empEmail.trim())) { setEmployeeError("รูปแบบอีเมลไม่ถูกต้อง"); return; }
-    if (empUsername.trim() && employees.some(e => e.username?.toLowerCase() === empUsername.trim().toLowerCase())) { setEmployeeError("Username นี้มีอยู่แล้ว"); return; }
+    if (empUsername.trim() && employees.some(e => e.id !== editingEmployee && e.username?.toLowerCase() === empUsername.trim().toLowerCase())) { setEmployeeError("Username นี้มีอยู่แล้ว"); return; }
+    if (editingEmployee && !await confirm("ยืนยันการแก้ไข", `บันทึกข้อมูลพนักงาน ${empName.trim()} ใช่หรือไม่?`)) return;
     const newEmp = {
-      id: `E${String(Math.max(0, ...employees.map(e => Number(e.id.slice(1)) || 0)) + 1).padStart(3, "0")}`,
+      id: editingEmployee ?? `E${String(Math.max(0, ...employees.map(e => Number(e.id.slice(1)) || 0)) + 1).padStart(3, "0")}`,
       name: empName.trim(), deptCode, dept: empDept, role: empRole, phone: empPhone.trim(),
-      email: empEmail.trim(), username: empUsername.trim(), hasPassword: empPassword.length > 0,
+      email: empEmail.trim(), username: empUsername.trim(), hasPassword: empPassword.length > 0 || !!employees.find(e => e.id === editingEmployee)?.hasPassword,
     };
     setEmployeeError("");
-    setEmployees(prev => [...prev, newEmp]);
+    setEmployees(prev => editingEmployee ? prev.map(e => e.id === editingEmployee ? newEmp : e) : [...prev, newEmp]);
     setShowForm(false);
     setEmpName(""); setEmpDept(""); setEmpRole(""); setEmpPhone("");
     setEmpEmail(""); setEmpUsername(""); setEmpPassword("");
@@ -756,7 +773,7 @@ function AdminEmployees() {
     <div className="p-8">
       <div className="flex justify-between items-center mb-6">
         <SectionTitle>จัดการพนักงาน</SectionTitle>
-        <button onClick={() => setShowForm(!showForm)}
+        <button onClick={() => openEmployee()}
           className="bg-[#f5a623] text-[#0a0a0a] font-bold px-4 py-2 text-sm hover:bg-[#e09520] transition-colors">
           + เพิ่มพนักงาน
         </button>
@@ -764,7 +781,7 @@ function AdminEmployees() {
 
       {showForm && (
         <div className="border border-[#f5a623]/40 bg-[#f5a623]/5 p-5 mb-6">
-          <p className="mono text-[10px] text-[#f5a623] tracking-widest mb-4">ฟอร์มเพิ่มพนักงาน</p>
+          <p className="mono text-[10px] text-[#f5a623] tracking-widest mb-4">{editingEmployee ? "แก้ไขข้อมูลพนักงาน" : "ฟอร์มเพิ่มพนักงาน"}</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="mono text-[10px] text-[#888] tracking-widest block mb-1">ชื่อ-นามสกุล</label>
@@ -810,7 +827,7 @@ function AdminEmployees() {
             <div>
               <label className="mono text-[10px] text-[#888] tracking-widest block mb-1">Password</label>
               <input type="password" aria-label="Password พนักงาน" value={empPassword} onChange={e => setEmpPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder={editingEmployee ? "เว้นว่างเพื่อใช้รหัสผ่านเดิม" : "••••••••"}
                 className="w-full bg-[#0a0a0a] border border-[#2a2a2a] px-3 py-2 text-sm outline-none focus:border-[#f5a623] transition-colors placeholder:text-[#444]" />
             </div>
           </div>
@@ -836,8 +853,8 @@ function AdminEmployees() {
             <span className="mono text-xs">{e.username || "—"}</span>,
             <span aria-label={e.hasPassword ? "ตั้งรหัสผ่านแล้ว" : "ยังไม่มีข้อมูลรหัสผ่าน"} className="mono tracking-widest">{e.hasPassword ? "********" : "—"}</span>,
             <div className="flex gap-2">
-              <button className="mono text-[10px] text-[#888] hover:text-[#f5a623] tracking-widest">แก้ไข</button>
-              <button onClick={() => setEmployees(prev => prev.filter(x => x.id !== e.id))}
+              <button aria-label={`แก้ไขพนักงาน ${e.name}`} onClick={async () => { if (await confirm("ยืนยันการแก้ไข", `ต้องการแก้ไขข้อมูล ${e.name} ใช่หรือไม่?`)) openEmployee(e); }} className="mono text-[10px] text-[#888] hover:text-[#f5a623] tracking-widest">แก้ไข</button>
+              <button aria-label={`ลบพนักงาน ${e.name}`} onClick={async () => { if (await confirm("ยืนยันการลบ", `ต้องการลบพนักงาน ${e.name} ใช่หรือไม่?`)) { setEmployees(prev => prev.filter(x => x.id !== e.id)); if (editingEmployee === e.id) setShowForm(false); } }}
                 className="mono text-[10px] text-[#888] hover:text-[#e74c3c] tracking-widest">ลบ</button>
             </div>,
           ])}
@@ -852,6 +869,7 @@ function AdminEmployees() {
 const FEATURE_PAGES = ["จัดการเส้นทาง", "ตารางเดินรถ", "จัดการพนักงาน", "ข้อมูลรถ", "สิทธิ์การเข้าถึง", "รายงาน", "ตารางงานคนขับ"];
 
 function AdminPermissions() {
+  const confirm = useConfirm();
   const [roles, setRoles] = useState(["Admin", "เจ้าหน้าที่", "นักศึกษา", "คนขับรถ"]);
   const [newRole, setNewRole] = useState("");
   const defaultsFor = (r: string): Record<string, boolean> => {
@@ -875,7 +893,8 @@ function AdminPermissions() {
     setNewRole("");
   };
 
-  const removeRole = (r: string) => {
+  const removeRole = async (r: string) => {
+    if (!await confirm("ยืนยันการลบ", `ต้องการลบตำแหน่ง ${r} และสิทธิ์ของตำแหน่งนี้ใช่หรือไม่?`)) return;
     if (r === "Admin") return;
     setRoles(prev => prev.filter(x => x !== r));
     setPerms(p => { const copy = { ...p }; delete copy[r]; return copy; });
@@ -943,6 +962,7 @@ function AdminPermissions() {
 // ─── ADMIN: VEHICLES ─────────────────────────────────────────────────────────
 
 function AdminVehicles() {
+  const confirm = useConfirm();
   const [vehicles, setVehicles] = useState<Vehicle[]>([...INITIAL_VEHICLES]);
   const [showForm, setShowForm] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<string | null>(null);
@@ -960,7 +980,8 @@ function AdminVehicles() {
     setVSeats(vehicle ? String(vehicle.seats) : ""); setVBrand(vehicle?.brand ?? ""); setVYear(vehicle ? String(vehicle.year) : "");
     setVStatus(vehicle?.status ?? "พร้อมใช้"); setVehicleError(""); setVehicleNotice(""); setShowForm(true);
   };
-  const handleAdd = () => {
+  const handleAdd = async () => {
+    if (editingVehicle && !await confirm("ยืนยันการแก้ไข", "บันทึกการแก้ไขข้อมูลรถใช่หรือไม่?")) return;
     if (!vPlate.trim() || !vBrand.trim()) { setVehicleError("กรุณากรอกป้ายทะเบียนและยี่ห้อ/รุ่น"); return; }
     if (vehicles.some(v => v.id !== editingVehicle && v.plate.replace(/\s/g, "").toLowerCase() === vPlate.replace(/\s/g, "").toLowerCase())) { setVehicleError("ป้ายทะเบียนนี้มีอยู่แล้ว"); return; }
     if ((vSeats && (!Number.isInteger(Number(vSeats)) || Number(vSeats) < 1)) || (vYear && (!Number.isInteger(Number(vYear)) || Number(vYear) < 1))) { setVehicleError("จำนวนที่นั่งและปีต้องเป็นจำนวนเต็มมากกว่า 0"); return; }
@@ -1078,8 +1099,8 @@ function AdminVehicles() {
               <span className="mono text-[#888]">{v.year}</span>,
               <Chip label={v.status} color={v.status === "พร้อมใช้" ? "green" : "amber"} />,
               <div className="flex items-center gap-3">
-                <button aria-label={`แก้ไขรถ ${v.plate}`} onClick={() => openVehicle(v)} className="text-xs text-[#f5a623] hover:underline">แก้ไข</button>
-                <button aria-label={`ลบรถ ${v.plate}`} onClick={() => { setVehicles(prev => prev.filter(x => x.id !== v.id)); if (editingVehicle === v.id) setShowForm(false); }} className="text-xs text-[#ed827a] hover:underline">ลบ</button>
+                <button aria-label={`แก้ไขรถ ${v.plate}`} onClick={async () => { if (await confirm("ยืนยันการแก้ไข", `ต้องการแก้ไขรถ ${v.plate} ใช่หรือไม่?`)) openVehicle(v); }} className="text-xs text-[#f5a623] hover:underline">แก้ไข</button>
+                <button aria-label={`ลบรถ ${v.plate}`} onClick={async () => { if (!await confirm("ยืนยันการลบ", `ต้องการลบรถ ${v.plate} ใช่หรือไม่?`)) return; setVehicles(prev => prev.filter(x => x.id !== v.id)); if (editingVehicle === v.id) setShowForm(false); }} className="text-xs text-[#ed827a] hover:underline">ลบ</button>
               </div>,
             ])}
           />
@@ -1103,8 +1124,8 @@ function AdminVehicles() {
               <span className="mono text-[#888]">{v.year}</span>,
               <Chip label={v.status} color={v.status === "พร้อมใช้" ? "green" : "amber"} />,
               <div className="flex items-center gap-3">
-                <button aria-label={`แก้ไขรถ ${v.plate}`} onClick={() => openVehicle(v)} className="text-xs text-[#f5a623] hover:underline">แก้ไข</button>
-                <button aria-label={`ลบรถ ${v.plate}`} onClick={() => { setVehicles(prev => prev.filter(x => x.id !== v.id)); if (editingVehicle === v.id) setShowForm(false); }} className="text-xs text-[#ed827a] hover:underline">ลบ</button>
+                <button aria-label={`แก้ไขรถ ${v.plate}`} onClick={async () => { if (await confirm("ยืนยันการแก้ไข", `ต้องการแก้ไขรถ ${v.plate} ใช่หรือไม่?`)) openVehicle(v); }} className="text-xs text-[#f5a623] hover:underline">แก้ไข</button>
+                <button aria-label={`ลบรถ ${v.plate}`} onClick={async () => { if (!await confirm("ยืนยันการลบ", `ต้องการลบรถ ${v.plate} ใช่หรือไม่?`)) return; setVehicles(prev => prev.filter(x => x.id !== v.id)); if (editingVehicle === v.id) setShowForm(false); }} className="text-xs text-[#ed827a] hover:underline">ลบ</button>
               </div>,
             ])}
           />
@@ -1501,7 +1522,9 @@ function ReportsPage() {
 
 // ─── ROOT ────────────────────────────────────────────────────────────────────
 
-export default function App() {
+export default function App() { return <ConfirmationProvider><AppContent /></ConfirmationProvider>; }
+
+function AppContent() {
   const [role, setRole] = useState<Role | null>(null);
   const [user, setUser] = useState("");
   const [page, setPage] = useState<Page>("booking");
@@ -1512,7 +1535,8 @@ export default function App() {
 
   const renderPage = () => {
     switch (page) {
-      case "booking": return <BookingPage />;
+      case "booking":
+      case "cancellations": return <BookingPage view={page} />;
       case "admin-routes": return <AdminRoutes />;
       case "admin-schedule": return <AdminSchedule />;
       case "admin-employees": return <AdminEmployees />;
