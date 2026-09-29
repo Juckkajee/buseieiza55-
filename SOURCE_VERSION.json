@@ -1,16 +1,12 @@
 {
-  "tag": "busv6",
-  "title": "ก่อนเพิ่มรายละเอียดผู้ใช้และตั๋ว",
+  "tag": "busv7",
+  "title": "Figma พร้อมตั๋ว QR และประวัติยกเลิก",
   "savedDate": "2026-09-23",
-  "kind": "partial-source-snapshot",
+  "kind": "source-archive",
   "sources": [
     {
-      "file": "backups/before-ticket-details-App.tsx",
-      "sha256": "68d6dc45fe0bbdc3a496a2940c2541fa57d5e3e321ac531b4c709cc611020c6b"
-    },
-    {
-      "file": "backups/before-ticket-details-BookingCart.tsx",
-      "sha256": "e328b250c08729fbbca778f5cd19b137d36774011e6263fcdaf4e3d6e3fb8e86"
+      "file": "backups/shuttle-tickets-cancellations-2026-09-23.zip",
+      "sha256": "e7ed9e29519c831b03608a59dd97cf6136d2e12829579e83a939d867f96ee6ad"
     }
   ],
   "historyReconstructedFromSavedFiles": true,

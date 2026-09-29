@@ -68,7 +68,7 @@ const EMPLOYEES = [
   { id: "E005", name: "ประยุทธ์ ดีมาก", deptCode: "SRV-02", dept: "ฝ่ายบริการ", role: "ผู้จัดการ", phone: "085-555-6677", email: "prayut@example.com", username: "prayut", hasPassword: true },
 ];
 
-const USER_DETAILS = { code: "U001", phone: "089-123-4567" };
+const USER_DETAILS = { code: "U001", username: "user", phone: "089-123-4567", type: "นักศึกษา" };
 
 const DEPT_MAP: Record<string, string> = {
   "ฝ่ายขนส่ง": "TRN-01",
@@ -90,9 +90,9 @@ const INITIAL_VEHICLES: Vehicle[] = [
 ];
 
 const BOOKINGS_MOCK = [
-  { id: "BK001", user: "นายกิตติ สุขใจ", route: 1, round: 2, from: "มหาวิทยาลัยเทคโนโลยีมหานคร", to: "โลตัสหนองจอก", seats: 2, seatNumbers: [2, 3], status: "confirmed" as const, qr: "QR-BK001", bookedAt: "14 ก.ย. 08:45" },
-  { id: "BK002", user: "นางสาวมาลี ดีงาม", route: 1, round: 1, from: "มหาวิทยาลัยเทคโนโลยีมหานคร", to: "Big C หนองจอก", seats: 1, seatNumbers: [5], status: "confirmed" as const, qr: "QR-BK002", bookedAt: "13 ก.ย. 16:20" },
-  { id: "BK003", user: "นายวีระ ใจกล้า", route: 2, round: 3, from: "มหาวิทยาลัยเทคโนโลยีมหานคร", to: "ร้านส้มตำป้านาง", seats: 3, seatNumbers: [1, 2, 3], status: "cancelled" as const, qr: "QR-BK003", bookedAt: "12 ก.ย. 10:05" },
+  { id: "BK001", travelDate: "2026-09-14", travelTime: "11:00", vehicleId: "V001", checkedInAt: null, user: "นายกิตติ สุขใจ", route: 1, round: 2, from: "มหาวิทยาลัยเทคโนโลยีมหานคร", to: "โลตัสหนองจอก", seats: 2, seatNumbers: [2, 3], status: "confirmed" as const, qr: "QR-BK001", bookedAt: "14 ก.ย. 08:45" },
+  { id: "BK002", travelDate: "2026-09-13", travelTime: "09:30", vehicleId: "V001", checkedInAt: null, user: "นางสาวมาลี ดีงาม", route: 1, round: 1, from: "มหาวิทยาลัยเทคโนโลยีมหานคร", to: "Big C หนองจอก", seats: 1, seatNumbers: [5], status: "confirmed" as const, qr: "QR-BK002", bookedAt: "13 ก.ย. 16:20" },
+  { id: "BK003", travelDate: "2026-09-12", travelTime: "13:00", vehicleId: "V002", checkedInAt: null, user: "นายวีระ ใจกล้า", route: 2, round: 3, from: "มหาวิทยาลัยเทคโนโลยีมหานคร", to: "ร้านส้มตำป้านาง", seats: 3, seatNumbers: [1, 2, 3], status: "cancelled" as const, qr: "QR-BK003", bookedAt: "12 ก.ย. 10:05" },
 ];
 
 const INITIAL_OCCUPIED_SEATS: Record<string, number[]> = {
@@ -209,6 +209,9 @@ function Sidebar({ role, page, setPage, setRole, user }: {
         {role === "user" && (
           <div className="mt-2 space-y-1 border-l border-[#2a2a2a] pl-2">
             <p className="mono text-[10px] text-[#888] tracking-wide">รหัสผู้ใช้ <span className="text-[#f5a623]">{USER_DETAILS.code}</span></p>
+            <p className="mono text-[10px] text-[#888] tracking-wide">Username <span className="text-[#d0ccc5]">{USER_DETAILS.username}</span></p>
+            <p className="mono text-[10px] text-[#888] tracking-wide">Password <span aria-label="รหัสผ่านถูกปิดบัง" className="text-[#d0ccc5]">********</span></p>
+            <p className="mono text-[10px] text-[#888] tracking-wide">ประเภท <span className="text-[#d0ccc5]">{USER_DETAILS.type}</span></p>
             <p className="mono text-[10px] text-[#888] tracking-wide">โทร. <span className="text-[#d0ccc5]">{USER_DETAILS.phone}</span></p>
           </div>
         )}
@@ -367,7 +370,7 @@ function QRBlock() {
 }
 
 function BookingPage({ view }: { view: "booking" | "cancellations" }) {
-  return <BookingCart view={view} routes={ROUTES_DATA} initialOccupied={INITIAL_OCCUPIED_SEATS} initialBookings={BOOKINGS_MOCK} userName="นายกิตติ สุขใจ" QrCode={QRBlock} />;
+  return <BookingCart view={view} routes={ROUTES_DATA} initialOccupied={INITIAL_OCCUPIED_SEATS} initialBookings={BOOKINGS_MOCK} userName="นายกิตติ สุขใจ" vehicles={INITIAL_VEHICLES} />;
 }
 
 // ─── ADMIN: ROUTES ────────────────────────────────────────────────────────────
@@ -417,8 +420,7 @@ function AdminRoutes() {
     setEditStopIdx(null); setShowAddStop(false); setStopError("");
   };
 
-  const startEditStop = async (idx: number) => {
-    if (!await confirm("ยืนยันการแก้ไข", `ต้องการแก้ไขจุดจอด ${idx + 1}. ${route.stops[idx].name} ใช่หรือไม่?`)) return;
+  const startEditStop = (idx: number) => {
     setStopError(""); setShowAddStop(false); setEditStopIdx(idx);
     setEditStopName(route.stops[idx].name);
     setEditStopMin(route.stops[idx].min?.toString() ?? "");
@@ -459,8 +461,7 @@ function AdminRoutes() {
     });
     setNewStopName(""); setNewStopMin(""); setShowAddStop(false); setStopError("");
   };
-  const openRound = async (round?: RouteEntry["schedule"][number]) => {
-    if (round && !await confirm("ยืนยันการแก้ไข", `ต้องการแก้ไขรอบ ${round.round} เวลา ${round.time} น. ใช่หรือไม่?`)) return;
+  const openRound = (round?: RouteEntry["schedule"][number]) => {
     setEditRoundId(round?.round ?? null); setRoundTime(round?.time ?? "");
     setRoundDriver(round?.driver ?? ""); setRoundVehicle(round?.vehicle ?? "");
     setRoundError(""); setDeleteRoundId(null); setShowAddRound(true);
@@ -853,7 +854,7 @@ function AdminEmployees() {
             <span className="mono text-xs">{e.username || "—"}</span>,
             <span aria-label={e.hasPassword ? "ตั้งรหัสผ่านแล้ว" : "ยังไม่มีข้อมูลรหัสผ่าน"} className="mono tracking-widest">{e.hasPassword ? "********" : "—"}</span>,
             <div className="flex gap-2">
-              <button aria-label={`แก้ไขพนักงาน ${e.name}`} onClick={async () => { if (await confirm("ยืนยันการแก้ไข", `ต้องการแก้ไขข้อมูล ${e.name} ใช่หรือไม่?`)) openEmployee(e); }} className="mono text-[10px] text-[#888] hover:text-[#f5a623] tracking-widest">แก้ไข</button>
+              <button aria-label={`แก้ไขพนักงาน ${e.name}`} onClick={() => openEmployee(e)} className="mono text-[10px] text-[#888] hover:text-[#f5a623] tracking-widest">แก้ไข</button>
               <button aria-label={`ลบพนักงาน ${e.name}`} onClick={async () => { if (await confirm("ยืนยันการลบ", `ต้องการลบพนักงาน ${e.name} ใช่หรือไม่?`)) { setEmployees(prev => prev.filter(x => x.id !== e.id)); if (editingEmployee === e.id) setShowForm(false); } }}
                 className="mono text-[10px] text-[#888] hover:text-[#e74c3c] tracking-widest">ลบ</button>
             </div>,
@@ -981,10 +982,10 @@ function AdminVehicles() {
     setVStatus(vehicle?.status ?? "พร้อมใช้"); setVehicleError(""); setVehicleNotice(""); setShowForm(true);
   };
   const handleAdd = async () => {
-    if (editingVehicle && !await confirm("ยืนยันการแก้ไข", "บันทึกการแก้ไขข้อมูลรถใช่หรือไม่?")) return;
     if (!vPlate.trim() || !vBrand.trim()) { setVehicleError("กรุณากรอกป้ายทะเบียนและยี่ห้อ/รุ่น"); return; }
     if (vehicles.some(v => v.id !== editingVehicle && v.plate.replace(/\s/g, "").toLowerCase() === vPlate.replace(/\s/g, "").toLowerCase())) { setVehicleError("ป้ายทะเบียนนี้มีอยู่แล้ว"); return; }
     if ((vSeats && (!Number.isInteger(Number(vSeats)) || Number(vSeats) < 1)) || (vYear && (!Number.isInteger(Number(vYear)) || Number(vYear) < 1))) { setVehicleError("จำนวนที่นั่งและปีต้องเป็นจำนวนเต็มมากกว่า 0"); return; }
+    if (editingVehicle && !await confirm("ยืนยันการแก้ไข", "บันทึกการแก้ไขข้อมูลรถใช่หรือไม่?")) return;
     const newV: Vehicle = {
       id: editingVehicle ?? `V${String(Math.max(0, ...vehicles.map(v => Number(v.id.slice(1)) || 0)) + 1).padStart(3, "0")}`,
       plate: vPlate.trim(), type: vType,
@@ -1099,7 +1100,7 @@ function AdminVehicles() {
               <span className="mono text-[#888]">{v.year}</span>,
               <Chip label={v.status} color={v.status === "พร้อมใช้" ? "green" : "amber"} />,
               <div className="flex items-center gap-3">
-                <button aria-label={`แก้ไขรถ ${v.plate}`} onClick={async () => { if (await confirm("ยืนยันการแก้ไข", `ต้องการแก้ไขรถ ${v.plate} ใช่หรือไม่?`)) openVehicle(v); }} className="text-xs text-[#f5a623] hover:underline">แก้ไข</button>
+                <button aria-label={`แก้ไขรถ ${v.plate}`} onClick={() => openVehicle(v)} className="text-xs text-[#f5a623] hover:underline">แก้ไข</button>
                 <button aria-label={`ลบรถ ${v.plate}`} onClick={async () => { if (!await confirm("ยืนยันการลบ", `ต้องการลบรถ ${v.plate} ใช่หรือไม่?`)) return; setVehicles(prev => prev.filter(x => x.id !== v.id)); if (editingVehicle === v.id) setShowForm(false); }} className="text-xs text-[#ed827a] hover:underline">ลบ</button>
               </div>,
             ])}
@@ -1124,7 +1125,7 @@ function AdminVehicles() {
               <span className="mono text-[#888]">{v.year}</span>,
               <Chip label={v.status} color={v.status === "พร้อมใช้" ? "green" : "amber"} />,
               <div className="flex items-center gap-3">
-                <button aria-label={`แก้ไขรถ ${v.plate}`} onClick={async () => { if (await confirm("ยืนยันการแก้ไข", `ต้องการแก้ไขรถ ${v.plate} ใช่หรือไม่?`)) openVehicle(v); }} className="text-xs text-[#f5a623] hover:underline">แก้ไข</button>
+                <button aria-label={`แก้ไขรถ ${v.plate}`} onClick={() => openVehicle(v)} className="text-xs text-[#f5a623] hover:underline">แก้ไข</button>
                 <button aria-label={`ลบรถ ${v.plate}`} onClick={async () => { if (!await confirm("ยืนยันการลบ", `ต้องการลบรถ ${v.plate} ใช่หรือไม่?`)) return; setVehicles(prev => prev.filter(x => x.id !== v.id)); if (editingVehicle === v.id) setShowForm(false); }} className="text-xs text-[#ed827a] hover:underline">ลบ</button>
               </div>,
             ])}
