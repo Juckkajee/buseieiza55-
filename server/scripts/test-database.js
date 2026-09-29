@@ -218,6 +218,11 @@ try {
       403,
     )
   })
+  await check("other administrators cannot delete or change E-ADMIN through the API", async () => {
+    if (!(await read(db => query(db, "SELECT employee_id FROM BUS_EMPLOYEES WHERE employee_id='E-ADMIN'"))).length) return
+    assert.equal((await request("/employees/E-ADMIN", "DELETE")).status, 403)
+    assert.equal((await request("/employees/E-ADMIN", "PUT", {})).status, 403)
+  })
   await check("origin check blocks cross-site mutations", async () => {
     const r = await fetch(base + "/api/vehicles", {
       method: "POST",
@@ -326,6 +331,30 @@ try {
       ).status,
       200,
     )
+    assert.equal((await read(db => query(db, "SELECT stop_id FROM BUS_STOPS WHERE stop_id=:stopId", {stopId: route.stops[1].stopId}))).length, 0)
+  })
+  await check("shared stops survive until the last reference is deleted; renaming and route deletion remove orphans", async () => {
+    const routeIds = []
+    for (const suffix of ["shared1", "shared2"]) {
+      const result = await request("/routes", "POST", {routeName:key(suffix)})
+      assert.equal(result.status,200)
+      routeIds.push(result.body.routeId); owned.routes.push(result.body.routeId)
+      assert.equal((await request(`/routes/${result.body.routeId}/stops`, "POST", {stopName:key("shared-stop"), minutesFromPrev:0})).status,200)
+    }
+    let routes = (await request("/bootstrap")).body.routes
+    const first = routes.find(r => r.routeId === routeIds[0]).stops[0]
+    const second = routes.find(r => r.routeId === routeIds[1]).stops[0]
+    owned.stops.push(first.stopId)
+    assert.equal(first.stopId,second.stopId)
+    assert.equal((await request(`/routes/${routeIds[0]}/stops/${first.routeStopId}`, "DELETE")).status,200)
+    assert.equal((await read(db=>query(db,"SELECT stop_id FROM BUS_STOPS WHERE stop_id=:stopId",{stopId:first.stopId}))).length,1)
+    assert.equal((await request(`/routes/${routeIds[1]}/stops/${second.routeStopId}`, "PUT", {stopName:key("renamed-stop"), minutesFromPrev:0})).status,200)
+    assert.equal((await read(db=>query(db,"SELECT stop_id FROM BUS_STOPS WHERE stop_id=:stopId",{stopId:first.stopId}))).length,0)
+    routes = (await request("/bootstrap")).body.routes
+    const renamed = routes.find(r=>r.routeId===routeIds[1]).stops[0]
+    owned.stops.push(renamed.stopId)
+    assert.equal((await request(`/routes/${routeIds[1]}`,"DELETE")).status,200)
+    assert.equal((await read(db=>query(db,"SELECT stop_id FROM BUS_STOPS WHERE stop_id=:stopId",{stopId:renamed.stopId}))).length,0)
   })
   await check("driver/vehicle overlapping schedules are rejected", async () =>
     assert.equal(

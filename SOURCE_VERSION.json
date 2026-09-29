@@ -1,12 +1,12 @@
 {
-  "tag": "busv8",
-  "title": "เว็บ React + Server + Oracle และ Driver",
+  "tag": "busv9",
+  "title": "แก้การลบจุดจอดและป้องกัน Admin หลัก",
   "savedDate": "2026-09-28",
   "kind": "source-archive",
   "sources": [
     {
-      "file": "deliverables/MUT-Shuttle-Web-2026-09-28.zip",
-      "sha256": "3ae25adbebf4220c70170517c85e429a3573cd36e64207e6a0b41cf2b4380e91"
+      "file": "deliverables/MUT-Shuttle-Web-2026-09-28-fix-stops-admin.zip",
+      "sha256": "9d0db7276027092d9a918a0dc1618dc98e65a7196c403827776ecd261d28622d"
     }
   ],
   "historyReconstructedFromSavedFiles": true,

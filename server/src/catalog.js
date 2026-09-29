@@ -1,5 +1,6 @@
 import { query, read, transaction, capabilities, ts } from "./db.js"
 import { guard, allowed, uniqueUsername } from "./auth.js"
+import { assertEmployeeDelete, assertEmployeeEdit } from "./employee-policy.js"
 import {
   requireThat,
   text,
@@ -13,6 +14,11 @@ import {
   overlaps,
   screens,
 } from "./domain.js"
+
+async function removeUnusedStops(db, stopIds) {
+  for (const stopId of new Set(stopIds))
+    await db.execute("DELETE FROM BUS_STOPS s WHERE s.stop_id=:stopId AND NOT EXISTS (SELECT 1 FROM BUS_ROUTE_STOPS rs WHERE rs.stop_id=s.stop_id)", {stopId})
+}
 
 export async function routes(db) {
   const result = await query(db, "SELECT * FROM BUS_ROUTES ORDER BY route_name")
@@ -240,13 +246,15 @@ export function catalogRoutes(app) {
   app.put(
     "/api/employees/:id",
     guard("admin-employees", true),
-    async (req, res) => res.json(await saveEmployee(req.body, req.params.id)),
+    async (req, res) => {
+      assertEmployeeEdit(req.user, req.params.id)
+      res.json(await saveEmployee(req.body, req.params.id))
+    },
   )
   app.delete(
     "/api/employees/:id",
     guard("admin-employees", true),
     async (req, res) => {
-      requireThat(req.params.id !== req.user.id, "ไม่สามารถลบบัญชีที่กำลังใช้งาน")
       await transaction(async (db) => {
         const [e] = await query(
           db,
@@ -254,7 +262,7 @@ export function catalogRoutes(app) {
           { employeeId: req.params.id },
         )
         requireThat(e, "ไม่พบพนักงาน", 404)
-        requireThat(e.positionId !== "ADMIN", "ไม่สามารถลบบัญชี Admin")
+        assertEmployeeDelete(req.user, req.params.id, e.positionId)
         changed(
           await db.execute(
             "DELETE FROM BUS_EMPLOYEES WHERE employee_id=:employeeId",
@@ -469,6 +477,7 @@ export function catalogRoutes(app) {
           "เส้นทางยังมีรอบรถอยู่ กรุณาจัดการรอบรถก่อน",
           409,
         )
+        const oldStops = await query(db, "SELECT stop_id FROM BUS_ROUTE_STOPS WHERE route_id=:routeId", {routeId: req.params.id})
         await db.execute(
           "DELETE FROM BUS_ROUTE_STOPS WHERE route_id=:routeId",
           { routeId: req.params.id },
@@ -478,6 +487,7 @@ export function catalogRoutes(app) {
             routeId: req.params.id,
           }),
         )
+        await removeUnusedStops(db, oldStops.map(s => s.stopId))
       })
       res.json({ ok: true })
     },
@@ -525,6 +535,7 @@ export function catalogRoutes(app) {
           "UPDATE BUS_ROUTE_STOPS SET stop_id=:stopId WHERE route_stop_id=:routeStopId",
           { stopId: stop.stopId, routeStopId },
         )
+        if (entry.stopId !== stop.stopId) await removeUnusedStops(db, [entry.stopId])
       } else {
         const newId = id("RS")
         let index = ordered.length
@@ -553,12 +564,14 @@ export function catalogRoutes(app) {
           "LOCK TABLE BUS_TRIP_ROUNDS IN SHARE ROW EXCLUSIVE MODE",
         )
         await routeUnlocked(db, req.params.id)
+        const oldStops = await query(db, "SELECT stop_id FROM BUS_ROUTE_STOPS WHERE route_id=:routeId AND route_stop_id=:routeStopId", {routeId: req.params.id, routeStopId: req.params.stopId})
         changed(
           await db.execute(
             "DELETE FROM BUS_ROUTE_STOPS WHERE route_id=:routeId AND route_stop_id=:routeStopId",
             { routeId: req.params.id, routeStopId: req.params.stopId },
           ),
         )
+        await removeUnusedStops(db, oldStops.map(s => s.stopId))
         await resequence(
           db,
           req.params.id,

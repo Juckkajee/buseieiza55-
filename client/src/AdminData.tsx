@@ -22,7 +22,7 @@ import {
 } from "./ui"
 
 export function EmployeesPage() {
-  const { data, refresh, can } = useApp(),
+  const { data, refresh, can, user } = useApp(),
     editable = can("admin-employees"),
     ask = useConfirm(),
     action = useAction()
@@ -271,7 +271,8 @@ export function EmployeesPage() {
 
           <div className="flex gap-3 whitespace-nowrap">
             <button
-              disabled={!editable}
+              disabled={!editable || (e.employeeId === "E-ADMIN" && user.id !== "E-ADMIN")}
+              title={e.employeeId === "E-ADMIN" && user.id !== "E-ADMIN" ? "เฉพาะ E-ADMIN แก้ไขบัญชีนี้ได้" : "แก้ไขข้อมูลพนักงาน"}
               className="text-xs text-[#f5a623] disabled:opacity-30"
               onClick={() =>
                 setForm({
@@ -288,7 +289,8 @@ export function EmployeesPage() {
               แก้ไข
             </button>
             <button
-              disabled={!editable || action.busy || e.positionId === "ADMIN"}
+              disabled={!editable || action.busy || e.employeeId === "E-ADMIN" || e.employeeId === user.id || (e.positionId === "ADMIN" && user.id !== "E-ADMIN")}
+              title={e.employeeId === "E-ADMIN" ? "บัญชีผู้ดูแลหลัก ไม่สามารถลบได้" : e.positionId === "ADMIN" && user.id !== "E-ADMIN" ? "เฉพาะ E-ADMIN ลบ Admin อื่นได้" : "ลบพนักงาน"}
               className="text-xs text-red-300 disabled:opacity-30"
               onClick={async () => {
                 if (await ask("ยืนยันการลบพนักงาน", `ลบ ${e.fullName} หรือไม่?`))
