@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+*.log
+server/private/
+tmp/
+.vs/
+
+# Local backups and private working files are not published
+/backups/
+/deliverables/
+/driver-update/
