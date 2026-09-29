@@ -12,6 +12,7 @@ import Auth from "./Auth"
 import BookingPage from "./BookingPage"
 import AdminRoutes from "./AdminRoutes"
 import { EmployeesPage, VehiclesPage, PermissionsPage } from "./AdminData"
+import UsersPage from "./UsersPage"
 import TripsPage from "./TripsPage"
 import DriverPage from "./DriverPage"
 const ReportsPage = lazy(() => import("./ReportsPage"))
@@ -30,6 +31,7 @@ const nav = [
   ["admin-routes", "จัดการเส้นทาง", "🗺"],
   ["admin-schedule", "ตารางเดินรถ", "📅"],
   ["admin-employees", "จัดการพนักงาน", "👥"],
+  ["admin-users", "จัดการผู้ใช้งาน", "👤"],
   ["admin-vehicles", "ข้อมูลรถ", "🚐"],
   ["admin-permissions", "สิทธิ์การเข้าถึง", "🔐"],
   ["reports", "รายงาน", "📊"],
@@ -170,6 +172,8 @@ function Content() {
         return <TripsPage />
       case "admin-employees":
         return <EmployeesPage />
+      case "admin-users":
+        return <UsersPage />
       case "admin-vehicles":
         return <VehiclesPage />
       case "admin-permissions":

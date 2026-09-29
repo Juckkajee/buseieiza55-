@@ -118,6 +118,7 @@ export const screens = [
   ["admin-routes", "จัดการเส้นทาง"],
   ["admin-schedule", "ตารางเดินรถ"],
   ["admin-employees", "จัดการพนักงาน"],
+  ["admin-users", "จัดการผู้ใช้งาน"],
   ["admin-vehicles", "ข้อมูลรถ"],
   ["admin-permissions", "สิทธิ์การเข้าถึง"],
   ["reports", "รายงาน"],

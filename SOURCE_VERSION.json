@@ -1,12 +1,12 @@
 {
-  "tag": "busv10",
-  "title": "เตรียมระบบรหัสเรียงและ SQL สำหรับตรวจ",
+  "tag": "busv11",
+  "title": "หน้าจัดการผู้ใช้งาน",
   "savedDate": "2026-09-28",
   "kind": "source-archive",
   "sources": [
     {
-      "file": "deliverables/MUT-Shuttle-Web-2026-09-28-readable-ids-ready.zip",
-      "sha256": "2758633fc2e815ee57078f65c0315952bbe4bd5bf416a41817ad7bd4c2a61f12"
+      "file": "deliverables/MUT-Shuttle-Web-2026-09-28-user-management.zip",
+      "sha256": "42386dc493a5700ce2a59b62432ac7780c49ff911a10fc2b42624cb01f280da1"
     }
   ],
   "historyReconstructedFromSavedFiles": true,

@@ -121,6 +121,7 @@ npm.cmd --prefix server run migrate:reviewed -- --apply-reviewed
 - การจองและตั๋วที่ยกเลิกยังอยู่ในฐานข้อมูล และแสดงในหน้าประวัติการยกเลิก
 - ลบจุดจอดแล้วระบบลบทั้งรายการของเส้นทางและชื่อจุดในฐานข้อมูลเมื่อไม่มีเส้นทางอื่นใช้อยู่ จุดที่ใช้ร่วมกันจะยังเก็บไว้
 - `E-ADMIN` เป็นบัญชีหลัก ลบไม่ได้และ Admin อื่นแก้ไขบัญชีนี้ไม่ได้ เฉพาะ `E-ADMIN` ลบ Admin อื่นได้ และทุกบัญชีลบตัวเองไม่ได้
+- **จัดการผู้ใช้งาน:** Admin ค้นหา เพิ่ม และแก้ไขชื่อ Username เบอร์โทร ประเภท และรหัสผ่านของ User ได้ รหัสผ่านแสดงเป็น `********` การแก้ไขถามยืนยันตอนบันทึก และการลบถามยืนยันก่อนลบจริง บัญชีที่มีประวัติการจอง (รวมที่ยกเลิกแล้ว) ลบไม่ได้ตาม FK `BUS_FK_BOOKING_USER` โดยแสดงจำนวนและเหตุผลในหน้าเว็บ
 
 ## กติกาที่ Server ตรวจจริง
 
@@ -145,6 +146,7 @@ npm.cmd --prefix server run migrate:reviewed -- --apply-reviewed
 | เส้นทาง / จุดจอด | `client/src/AdminRoutes.tsx` |
 | รอบรถ / ตารางเดินรถ | `client/src/TripsPage.tsx` |
 | พนักงาน / รถ / สิทธิ์ | `client/src/AdminData.tsx` |
+| จัดการผู้ใช้งาน | `client/src/UsersPage.tsx`, `server/src/users.js` |
 | หน้าคนขับ | `client/src/DriverPage.tsx` |
 | รายงาน | `client/src/ReportsPage.tsx` |
 | สี / ฟอนต์ / รูปแบบร่วม | `client/src/index.css`, `client/src/ui.tsx` |

@@ -1,6 +1,10 @@
 import { query } from "./db.js"
 import { uniqueUsername } from "./auth.js"
 import { hashPassword, requireThat, text, optional, screens } from "./domain.js"
+export async function ensureScreenCatalog(db) {
+  for (const [screenId, screenName] of screens)
+    await db.execute("MERGE INTO BUS_SCREENS d USING(SELECT :screenId k,:screenName n FROM dual) s ON(d.screen_id=s.k) WHEN NOT MATCHED THEN INSERT(screen_id,screen_name) VALUES(s.k,s.n)", {screenId, screenName})
+}
 export async function setupAdmin(db, data) {
   await db.execute("LOCK TABLE BUS_EMPLOYEES IN EXCLUSIVE MODE")
   requireThat(

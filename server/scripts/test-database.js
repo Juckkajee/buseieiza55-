@@ -17,6 +17,7 @@ const prefix = "QA" + randomUUID().slice(0, 8),
   key = (s) => prefix + "-" + s
 const pw = "Local-test-" + randomUUID(),
   owned = {
+    users: [],
     vehicles: [],
     employees: [],
     positions: [],
@@ -228,6 +229,43 @@ try {
       403,
     )
   })
+  await check("user management rejects ordinary users and drivers", async () => {
+    for (const actor of ["user", "driver"]) {
+      assert.equal((await request("/users", "GET", null, actor)).status,403)
+      assert.equal((await request("/users", "POST", {}, actor)).status,403)
+      assert.equal((await request("/users/"+key("user"), "PUT", {}, actor)).status,403)
+      assert.equal((await request("/users/"+key("user"), "DELETE", null, actor)).status,403)
+    }
+  })
+  await check("admin user CRUD persists, hides password hashes, and validates shared usernames", async () => {
+    const form = {fullName:"ผู้ใช้ทดสอบใหม่",username:key("managed-user"),phone:"0812345678",userType:"นักศึกษา",password:pw}
+    const created=await request("/users","POST",form)
+    assert.equal(created.status,200,JSON.stringify(created.body))
+    const userId=created.body.userId
+    owned.users.push(userId)
+    let users=await request("/users")
+    assert.equal(users.status,200)
+    const saved=users.body.find(u=>u.userId===userId)
+    assert.equal(saved.fullName,form.fullName)
+    assert.equal(saved.bookingCount,0)
+    assert.equal(saved.passwordHash,undefined)
+    assert.equal(saved.password,undefined)
+    for(const username of [key("admin"),key("user")]) assert.equal((await request("/users/"+userId,"PUT",{...form,username})).status,409)
+    assert.equal((await request("/users/"+userId,"PUT",{...form,userType:"ADMIN"})).status,400)
+    const changed={...form,fullName:"แก้ไขผู้ใช้ทดสอบ",phone:"0899999999",userType:"บุคคลทั่วไป",password:""}
+    assert.equal((await request("/users/"+userId,"PUT",changed)).status,200)
+    assert.equal((await request("/auth/login","POST",{username:form.username,password:pw},"anonymous")).status,200)
+    const newPassword="Changed-"+randomUUID()
+    assert.equal((await request("/users/"+userId,"PUT",{...changed,password:newPassword})).status,200)
+    assert.equal((await request("/auth/login","POST",{username:form.username,password:pw},"anonymous")).status,401)
+    const login=await request("/auth/login","POST",{username:form.username,password:newPassword},"anonymous")
+    assert.equal(login.status,200)
+    assert.equal(login.body.user.role,"user")
+    cookies.managed=login.cookie.split(";")[0]
+    assert.equal((await request("/users/"+userId,"DELETE")).status,200)
+    assert.equal((await read(db=>query(db,"SELECT user_id FROM BUS_USERS WHERE user_id=:userId",{userId}))).length,0)
+    assert.equal((await request("/auth/me","GET",null,"managed")).status,401)
+  })
   await check("other administrators cannot delete or change E-ADMIN through the API", async () => {
     if (!(await read(db => query(db, "SELECT employee_id FROM BUS_EMPLOYEES WHERE employee_id='E-ADMIN'"))).length) return
     assert.equal((await request("/employees/E-ADMIN", "DELETE")).status, 403)
@@ -397,6 +435,15 @@ try {
     winner = ["user", "otheruser"][index]
     bookingId = results[index].body.bookingIds[0]
   })
+  await check("users with bookings cannot be deleted and the booking remains linked", async () => {
+    const userId=key(winner)
+    const result=await request("/users/"+userId,"DELETE")
+    assert.equal(result.status,409)
+    assert.match(result.body.message,/ประวัติการจอง/)
+    const user=(await request("/users")).body.find(u=>u.userId===userId)
+    assert.ok(user.bookingCount>0)
+    assert.equal((await read(db=>query(db,"SELECT user_id FROM BUS_BOOKINGS WHERE booking_id=:bookingId",{bookingId})))[0].userId,userId)
+  })
   await check("mixed cart rolls back entirely on occupied seat", async () => {
     const r = await request(
       "/bookings",
@@ -436,6 +483,7 @@ try {
         history.body.find((b) => b.bookingId === bookingId).status,
         "CANCELLED",
       )
+      assert.equal((await request("/users/"+key(winner),"DELETE")).status,409)
       assert.equal(
         (
           await request(
@@ -726,6 +774,7 @@ try {
           "DELETE FROM BUS_EMPLOYEES WHERE employee_id=:employeeId",
           { employeeId },
         )
+      for (const userId of owned.users) await db.execute("DELETE FROM BUS_USERS WHERE user_id=:userId",{userId})
       for (const suffix of ["user", "otheruser"])
         await db.execute("DELETE FROM BUS_USERS WHERE user_id=:userId", {
           userId: key(suffix),

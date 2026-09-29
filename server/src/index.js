@@ -6,7 +6,8 @@ import { authRoutes, authenticate } from "./auth.js"
 import { catalogRoutes } from "./catalog.js"
 import { bookingRoutes, driverRoutes } from "./bookings.js"
 import { reportRoutes } from "./reports.js"
-import { setupAdmin } from "./setup.js"
+import { setupAdmin, ensureScreenCatalog } from "./setup.js"
+import { userManagementRoutes } from "./users.js"
 import { HttpError } from "./domain.js"
 import { ensureDailyRounds } from "./daily-rounds.js"
 export function createApp() {
@@ -60,6 +61,7 @@ export function createApp() {
   authRoutes(app)
   app.use("/api", authenticate)
   catalogRoutes(app)
+  userManagementRoutes(app)
   bookingRoutes(app)
   driverRoutes(app)
   reportRoutes(app)
@@ -104,6 +106,7 @@ export function createApp() {
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   try {
     await connect()
+    await transaction(ensureScreenCatalog)
     console.log("Daily rounds:", await ensureDailyRounds())
     const dailyTimer = setInterval(() => {
       void ensureDailyRounds()
