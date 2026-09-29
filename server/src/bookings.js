@@ -14,15 +14,16 @@ import {
 export async function bookings(db, userId) {
   const rows = await query(
     db,
-    `SELECT b.booking_id,b.trip_id,b.status,${ts("b.booked_at")} booked_at,r.route_name,t.route_id,${ts("t.departure_at")} departure_at,t.status trip_status,v.vehicle_id,v.license_plate,v.vehicle_type,e.full_name driver_name
-    FROM BUS_BOOKINGS b JOIN BUS_TRIP_ROUNDS t ON t.trip_id=b.trip_id JOIN BUS_ROUTES r ON r.route_id=t.route_id JOIN BUS_VEHICLES v ON v.vehicle_id=t.vehicle_id JOIN BUS_EMPLOYEES e ON e.employee_id=t.driver_employee_id WHERE b.user_id=:userId ORDER BY b.booked_at DESC,b.booking_id`,
-    { userId },
+    `SELECT b.booking_id,b.trip_id,b.status,b.user_id,u.full_name user_name,u.username,${ts("b.booked_at")} booked_at,r.route_name,t.route_id,${ts("t.departure_at")} departure_at,t.status trip_status,v.vehicle_id,v.license_plate,v.vehicle_type,e.full_name driver_name,
+    ${capabilities.bookingCancellation ? `b.cancellation_reason,${ts("b.cancelled_at")} cancelled_at,b.cancelled_by` : "NULL cancellation_reason,NULL cancelled_at,NULL cancelled_by"}
+    FROM BUS_BOOKINGS b JOIN BUS_USERS u ON u.user_id=b.user_id JOIN BUS_TRIP_ROUNDS t ON t.trip_id=b.trip_id JOIN BUS_ROUTES r ON r.route_id=t.route_id JOIN BUS_VEHICLES v ON v.vehicle_id=t.vehicle_id JOIN BUS_EMPLOYEES e ON e.employee_id=t.driver_employee_id ${userId ? "WHERE b.user_id=:userId" : ""} ORDER BY b.booked_at DESC,b.booking_id`,
+    userId ? { userId } : {},
   )
   const details = await query(
     db,
     `SELECT d.booking_id,d.ticket_no,d.seat_number,d.status,d.qr_token,${ts("d.travel_at")} travel_at,${ts("d.checked_in_at")} checked_in_at,p.stop_name pickup_name,q.stop_name dropoff_name,rp.stop_sequence pickup_sequence,rq.stop_sequence dropoff_sequence
-    FROM BUS_BOOKING_DETAILS d JOIN BUS_BOOKINGS b ON b.booking_id=d.booking_id JOIN BUS_ROUTE_STOPS rp ON rp.route_stop_id=d.pickup_route_stop_id JOIN BUS_STOPS p ON p.stop_id=rp.stop_id JOIN BUS_ROUTE_STOPS rq ON rq.route_stop_id=d.dropoff_route_stop_id JOIN BUS_STOPS q ON q.stop_id=rq.stop_id WHERE b.user_id=:userId ORDER BY d.ticket_no`,
-    { userId },
+    FROM BUS_BOOKING_DETAILS d JOIN BUS_BOOKINGS b ON b.booking_id=d.booking_id JOIN BUS_ROUTE_STOPS rp ON rp.route_stop_id=d.pickup_route_stop_id JOIN BUS_STOPS p ON p.stop_id=rp.stop_id JOIN BUS_ROUTE_STOPS rq ON rq.route_stop_id=d.dropoff_route_stop_id JOIN BUS_STOPS q ON q.stop_id=rq.stop_id ${userId ? "WHERE b.user_id=:userId" : ""} ORDER BY d.ticket_no`,
+    userId ? { userId } : {},
   )
   return rows.map((b) => ({
     ...b,
@@ -153,6 +154,7 @@ export function bookingRoutes(app) {
         "SELECT status FROM BUS_BOOKINGS WHERE booking_id=:bookingId FOR UPDATE",
         { bookingId },
       )
+      requireThat(current, "รายการนี้ถูกลบแล้ว กรุณาโหลดใหม่", 404)
       requireThat(
         current.status === "CONFIRMED",
         "รายการนี้ไม่อยู่ในสถานะที่ยกเลิกได้",

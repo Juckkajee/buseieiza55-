@@ -1,12 +1,12 @@
 ﻿-- MUT SHUTTLE BUS - ALL-IN-ONE ORACLE SCHEMA
--- รวมไฟล์ตรวจชื่อซ้ำ + สร้าง 13 ตารางหลัก + ตาราง Driver/คอลัมน์รถ
+-- รวมตรวจชื่อซ้ำ + 13 ตารางหลัก + ตาราง Driver/คอลัมน์รถ + เหตุผลยกเลิก
 -- สำหรับติดตั้งฐานข้อมูลใหม่เท่านั้น ฐานข้อมูลปัจจุบันมีตารางครบแล้ว ไม่ต้องรันซ้ำ
 -- เปิดใน SQL Developer แล้ว Run Script (F5) ด้วยบัญชี Oracle ของโปรเจกต์
 -- ส่วนแรกอ่านอย่างเดียว ส่วนสร้างตรวจชื่อทั้งหมดอีกครั้งก่อนเริ่ม
 -- หากพบชื่อเดิม จะหยุดส่วนสร้างทั้งหมดก่อนทำ DDL ไม่ลบ/เขียนทับตารางเดิม
 -- Oracle DDL auto-commit: หากผิดพลาดกลางทางให้ตรวจโครงสร้างก่อนรันใหม่
 -- ไม่มีรหัสผ่าน ข้อมูลบัญชี ตัวอย่างข้อมูล หรือคำสั่ง DROP/TRUNCATE
--- PK/FK/constraints เหมือนไฟล์เดิม ไม่เพิ่มโครงสร้างใหม่จากที่อนุมัติ
+-- รวมเฉพาะโครงสร้างที่อนุมัติแล้ว ไม่รวม 003-readable-ids-REVIEW.sql ซึ่งยังรออนุมัติ
 
 -- PART 1: READ-ONLY NAME CHECK (original file)
 -- READ ONLY: run using the SAME Oracle login that would create the BUS_ tables.
@@ -472,6 +472,12 @@ BEGIN
   EXECUTE IMMEDIATE q'~CREATE UNIQUE INDEX BUS_UQ_TRIP_EVENT ON BUS_TRIP_EVENTS(trip_id,event_type,NVL(route_stop_id,'-'))~';
 
   EXECUTE IMMEDIATE q'~CREATE INDEX BUS_IX_EVENT_STOP ON BUS_TRIP_EVENTS(route_stop_id)~';
+
+  EXECUTE IMMEDIATE q'~ALTER TABLE BUS_BOOKINGS ADD (
+    cancellation_reason NVARCHAR2(500),
+    cancelled_at TIMESTAMP(0),
+    cancelled_by NVARCHAR2(200)
+)~';
 END;
 /
 

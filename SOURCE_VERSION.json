@@ -1,12 +1,12 @@
 {
-  "tag": "busv11",
-  "title": "หน้าจัดการผู้ใช้งาน",
+  "tag": "busv12",
+  "title": "หน้าจัดการการจองและเหตุผลยกเลิก",
   "savedDate": "2026-09-28",
   "kind": "source-archive",
   "sources": [
     {
-      "file": "deliverables/MUT-Shuttle-Web-2026-09-28-user-management.zip",
-      "sha256": "42386dc493a5700ce2a59b62432ac7780c49ff911a10fc2b42624cb01f280da1"
+      "file": "deliverables/MUT-Shuttle-Web-2026-09-28-booking-management.zip",
+      "sha256": "69317ec2667f8f959ea4c8465fd2730ed9b684d742fa567ec684d5d65f58c64d"
     }
   ],
   "historyReconstructedFromSavedFiles": true,

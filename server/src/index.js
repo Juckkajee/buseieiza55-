@@ -8,6 +8,7 @@ import { bookingRoutes, driverRoutes } from "./bookings.js"
 import { reportRoutes } from "./reports.js"
 import { setupAdmin, ensureScreenCatalog } from "./setup.js"
 import { userManagementRoutes } from "./users.js"
+import { adminBookingRoutes } from "./admin-bookings.js"
 import { HttpError } from "./domain.js"
 import { ensureDailyRounds } from "./daily-rounds.js"
 export function createApp() {
@@ -62,6 +63,7 @@ export function createApp() {
   app.use("/api", authenticate)
   catalogRoutes(app)
   userManagementRoutes(app)
+  adminBookingRoutes(app)
   bookingRoutes(app)
   driverRoutes(app)
   reportRoutes(app)

@@ -13,6 +13,7 @@ import BookingPage from "./BookingPage"
 import AdminRoutes from "./AdminRoutes"
 import { EmployeesPage, VehiclesPage, PermissionsPage } from "./AdminData"
 import UsersPage from "./UsersPage"
+import AdminBookingsPage from "./AdminBookingsPage"
 import TripsPage from "./TripsPage"
 import DriverPage from "./DriverPage"
 const ReportsPage = lazy(() => import("./ReportsPage"))
@@ -24,6 +25,7 @@ type Context = {
   data: Data
   refresh: () => Promise<void>
   can: (page: string) => boolean
+  openBookingsFor: (userId: string) => void
 }
 const AppContext = createContext<Context | null>(null)
 export const useApp = () => useContext(AppContext)!
@@ -32,6 +34,7 @@ const nav = [
   ["admin-schedule", "ตารางเดินรถ", "📅"],
   ["admin-employees", "จัดการพนักงาน", "👥"],
   ["admin-users", "จัดการผู้ใช้งาน", "👤"],
+  ["admin-bookings", "จัดการการจอง", "🎫"],
   ["admin-vehicles", "ข้อมูลรถ", "🚐"],
   ["admin-permissions", "สิทธิ์การเข้าถึง", "🔐"],
   ["reports", "รายงาน", "📊"],
@@ -45,6 +48,7 @@ export default function App() {
   )
 }
 function Content() {
+  const [bookingUserId, setBookingUserId] = useState("")
   const [user, setUser] = useState<User | null>(null),
     [data, setData] = useState<Data | null>(null),
     [loading, setLoading] = useState(true),
@@ -174,6 +178,8 @@ function Content() {
         return <EmployeesPage />
       case "admin-users":
         return <UsersPage />
+      case "admin-bookings":
+        return <AdminBookingsPage key={bookingUserId} initialUserId={bookingUserId} />
       case "admin-vehicles":
         return <VehiclesPage />
       case "admin-permissions":
@@ -191,7 +197,7 @@ function Content() {
     }
   }
   return (
-    <AppContext.Provider value={{ user, data, refresh, can }}>
+    <AppContext.Provider value={{ user, data, refresh, can, openBookingsFor: (userId) => {setBookingUserId(userId);setPage("admin-bookings")} }}>
       <div className="min-h-screen flex flex-col md:flex-row bg-[#0a0a0a] text-[#f0ede6]">
         <aside className="md:w-52 md:min-h-screen bg-[#0d0d0d] border-r border-[#2a2a2a] flex flex-col shrink-0">
           <div className="p-4 border-b border-[#2a2a2a]">
@@ -242,7 +248,7 @@ function Content() {
             {entries.map(([id, label, icon]) => (
               <button
                 key={id}
-                onClick={() => setPage(id)}
+                onClick={() => { if (id === "admin-bookings") setBookingUserId(""); setPage(id) }}
                 className={`whitespace-nowrap md:w-full text-left px-3 py-2 text-sm flex gap-2 items-center transition-colors ${
                   page === id
                     ? "bg-[#f5a623] text-[#0a0a0a] font-semibold"

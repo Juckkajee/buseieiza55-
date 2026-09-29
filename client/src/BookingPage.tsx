@@ -199,6 +199,11 @@ export default function BookingPage({
             {expanded === b.bookingId ? "ซ่อนรายละเอียด ▴" : "ดูรายละเอียด ▾"}
           </span>
         </button>
+        {b.cancellationReason && <div className="mt-4 border border-red-900 bg-red-950/20 p-3 text-sm">
+          <p className="text-red-200 font-bold">เหตุผลที่ Admin ยกเลิกการจอง</p>
+          <p className="mt-1 whitespace-pre-wrap break-words">{b.cancellationReason}</p>
+          {b.cancelledAt && <p className="text-xs text-[#999] mt-2">{displayTime(b.cancelledAt)}</p>}
+        </div>}
         {expanded === b.bookingId && (
           <div>
             <Details

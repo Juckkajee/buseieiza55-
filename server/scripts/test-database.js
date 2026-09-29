@@ -710,6 +710,56 @@ try {
       )
     }
   } else console.log("Driver event tests pending reviewed migration.")
+  await check("booking administration denies user and driver access", async () => {
+    for(const actor of ["user","driver"]) {
+      assert.equal((await request("/admin/bookings","GET",null,actor)).status,403)
+      assert.equal((await request("/admin/bookings/none/cancel","POST",{reason:"test"},actor)).status,403)
+      assert.equal((await request("/admin/bookings/none","DELETE",{confirmBookingId:"none"},actor)).status,403)
+    }
+  })
+  if(capabilities.bookingCancellation) await check("admin cancellation reason reaches owner; permanent deletion allows deleting the user",async()=>{
+    const created=await request("/users","POST",{fullName:"Cancellation workflow fixture",username:key("purge-user"),password:pw,userType:"นักศึกษา"})
+    assert.equal(created.status,200)
+    const userId=created.body.userId;owned.users.push(userId)
+    const login=await request("/auth/login","POST",{username:key("purge-user"),password:pw},"anonymous")
+    assert.equal(login.status,200);cookies.purge=login.cookie.split(";")[0]
+    const newTrip=await request("/trips","POST",{routeId:key("R"),vehicleId:key("V"),driverEmployeeId:key("driver"),departureAt:nextDay+"T18:00"})
+    assert.equal(newTrip.status,200,JSON.stringify(newTrip.body))
+    const tripId=newTrip.body.tripId;owned.trips.push(tripId)
+    const item={tripId,pickupId:key("RS1"),dropoffId:key("RS3"),seats:[1,2]}
+    const createdBooking=await request("/bookings","POST",{items:[item]},"purge")
+    assert.equal(createdBooking.status,200)
+    const bookingId=createdBooking.body.bookingIds[0], path="/admin/bookings/"+bookingId
+    assert.equal((await request(path,"DELETE",{confirmBookingId:bookingId})).status,409)
+    assert.equal((await request(path+"/cancel","POST",{reason:"   "})).status,400)
+    assert.equal((await request(path+"/cancel","POST",{reason:"x".repeat(501)})).status,400)
+    await transaction(db=>db.execute("UPDATE BUS_TRIP_ROUNDS SET status='IN_PROGRESS' WHERE trip_id=:tripId",{tripId}))
+    assert.equal((await request(path+"/cancel","POST",{reason:"ทดสอบ"})).status,409)
+    await transaction(db=>db.execute("UPDATE BUS_TRIP_ROUNDS SET status='SCHEDULED' WHERE trip_id=:tripId",{tripId}))
+    const reason="รถขัดข้อง กรุณาเลือกรอบเดินรถใหม่"
+    assert.equal((await request(path+"/cancel","POST",{reason})).status,200)
+    const owner=(await request("/bookings","GET",null,"purge")).body.find(b=>b.bookingId===bookingId)
+    assert.equal(owner.status,"CANCELLED");assert.equal(owner.cancellationReason,reason);assert.ok(owner.cancelledAt);assert.equal(owner.cancelledBy,key("admin"))
+    assert.ok(owner.tickets.every(t=>t.status==="CANCELLED"))
+    assert.equal((await request(path+"/cancel","POST",{reason:"overwrite"})).status,409)
+    assert.equal((await request("/users/"+userId,"DELETE")).status,409)
+    assert.equal((await request(path,"DELETE",{confirmBookingId:"wrong"})).status,400)
+    assert.equal((await request(path,"DELETE",{confirmBookingId:bookingId})).status,200)
+    for(const table of ["BUS_BOOKINGS","BUS_BOOKING_DETAILS"]) assert.equal((await read(db=>query(db,`SELECT COUNT(*) n FROM ${table} WHERE booking_id=:bookingId`,{bookingId})))[0].n,0)
+    assert.equal((await request("/bookings","GET",null,"purge")).body.length,0)
+    // Completed history may also be removed without pretending it was cancelled.
+    const completed=await request("/bookings","POST",{items:[item]},"purge")
+    assert.equal(completed.status,200)
+    const completedId=completed.body.bookingIds[0]
+    await transaction(async db=>{
+      await db.execute("UPDATE BUS_TRIP_ROUNDS SET status='COMPLETED' WHERE trip_id=:tripId",{tripId})
+      await db.execute("UPDATE BUS_BOOKINGS SET status='COMPLETED' WHERE booking_id=:bookingId",{bookingId:completedId})
+      await db.execute("UPDATE BUS_BOOKING_DETAILS SET status='COMPLETED' WHERE booking_id=:bookingId",{bookingId:completedId})
+    })
+    assert.equal((await request("/admin/bookings/"+completedId,"DELETE",{confirmBookingId:completedId})).status,200)
+    assert.equal((await request("/users/"+userId,"DELETE")).status,200)
+    assert.equal((await read(db=>query(db,"SELECT COUNT(*) n FROM BUS_USERS WHERE user_id=:userId",{userId})))[0].n,0)
+  })
   console.log(`${tests} integration checks passed against Oracle.`)
   if (process.argv.includes("--ui")) {
     console.log(
@@ -806,3 +856,4 @@ try {
   }
   await close()
 }
+

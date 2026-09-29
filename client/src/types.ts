@@ -82,6 +82,12 @@ export type Ticket = {
   dropoffSequence: number
 }
 export type Booking = {
+  userId: string
+  userName: string
+  username: string
+  cancellationReason: string | null
+  cancelledAt: string | null
+  cancelledBy: string | null
   bookingId: string
   tripId: string
   status: string
@@ -104,7 +110,7 @@ export type Draft = {
   seats: string[]
 }
 export type Data = {
-  capabilities: { vehicleExtras: boolean; tripEvents: boolean }
+  capabilities: { vehicleExtras: boolean; tripEvents: boolean; bookingCancellation: boolean }
   routes: Route[]
   vehicles: Vehicle[]
   departments: { departmentId: string; departmentName: string }[]
