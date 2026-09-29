@@ -1,0 +1,9 @@
+{
+  "folders": [{ "name": "MUT Shuttle Bus", "path": "." }],
+  "settings": {
+    "files.exclude": { "**/node_modules": true, "**/dist": true, "tmp": true },
+    "search.exclude": { "driver-update": true, "backups": true, "**/package-lock.json": true },
+    "editor.tabSize": 2,
+    "files.encoding": "utf8"
+  }
+}

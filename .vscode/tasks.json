@@ -1,0 +1,79 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Shuttle: Server",
+      "type": "shell",
+      "command": "npm.cmd run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/server"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "shuttle-server",
+        "pattern": {
+          "message": 3,
+          "regexp": "^(.*):(\\d+):\\d+: (.*)$",
+          "file": 1,
+          "line": 2
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^> dev",
+          "endsPattern": "MUT Shuttle server:"
+        }
+      },
+      "presentation": {
+        "panel": "dedicated",
+        "group": "shuttle",
+        "reveal": "always"
+      }
+    },
+    {
+      "label": "Shuttle: Client",
+      "type": "shell",
+      "command": "npm.cmd run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/client"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "shuttle-client",
+        "pattern": {
+          "message": 3,
+          "regexp": "^(.*):(\\d+):\\d+: (.*)$",
+          "file": 1,
+          "line": 2
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^> vite",
+          "endsPattern": "Local:"
+        }
+      },
+      "presentation": {
+        "panel": "dedicated",
+        "group": "shuttle",
+        "reveal": "always"
+      }
+    },
+    {
+      "label": "Shuttle: Run Server + Client",
+      "dependsOn": [
+        "Shuttle: Server",
+        "Shuttle: Client"
+      ],
+      "dependsOrder": "parallel",
+      "problemMatcher": []
+    },
+    {
+      "label": "Shuttle: Build Client",
+      "type": "shell",
+      "command": "npm.cmd run build",
+      "options": {
+        "cwd": "${workspaceFolder}/client"
+      },
+      "problemMatcher": "$tsc"
+    }
+  ]
+}

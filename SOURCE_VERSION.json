@@ -1,12 +1,12 @@
 {
-  "tag": "busv7",
-  "title": "Figma พร้อมตั๋ว QR และประวัติยกเลิก",
-  "savedDate": "2026-09-23",
+  "tag": "busv8",
+  "title": "เว็บ React + Server + Oracle และ Driver",
+  "savedDate": "2026-09-28",
   "kind": "source-archive",
   "sources": [
     {
-      "file": "backups/shuttle-tickets-cancellations-2026-09-23.zip",
-      "sha256": "e7ed9e29519c831b03608a59dd97cf6136d2e12829579e83a939d867f96ee6ad"
+      "file": "deliverables/MUT-Shuttle-Web-2026-09-28.zip",
+      "sha256": "3ae25adbebf4220c70170517c85e429a3573cd36e64207e6a0b41cf2b4380e91"
     }
   ],
   "historyReconstructedFromSavedFiles": true,

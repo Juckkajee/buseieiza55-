@@ -1,0 +1,15 @@
+{
+  "name": "mut-shuttle-server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch --env-file=.env src/index.js",
+    "start": "node --env-file=.env src/index.js",
+    "inspect": "node --env-file=.env scripts/inspect.js",
+    "test": "node --test test/*.test.js",
+    "test:db": "node --env-file=.env scripts/test-database.js",
+    "seed": "node --env-file=.env scripts/seed.js",
+    "migrate:reviewed": "node --env-file=.env scripts/migrate-reviewed.js"
+  },
+  "dependencies": { "express": "^5.1.0", "oracledb": "^6.9.0" }
+}

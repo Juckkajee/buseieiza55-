@@ -56,3 +56,9 @@ body {
 ::-webkit-scrollbar-thumb:hover { background: var(--muted-foreground); }
 
 .mono { font-family: 'DM Mono', monospace; }
+
+button:not(:disabled), input[type='checkbox'] { cursor: pointer; }
+input[type='checkbox'] { accent-color: #f5a623; }
+button:focus-visible { outline: 2px solid #f5a623; outline-offset: 3px; }
+button:disabled { cursor: not-allowed; }
+select { max-width: 100%; }
