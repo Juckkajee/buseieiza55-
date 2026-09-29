@@ -1,12 +1,12 @@
 {
-  "tag": "busv12",
-  "title": "หน้าจัดการการจองและเหตุผลยกเลิก",
-  "savedDate": "2026-09-28",
+  "tag": "busv13",
+  "title": "ข้อมูลจำลองรายงานปี 2569 และแบ่งหน้าการจอง",
+  "savedDate": "2026-09-29",
   "kind": "source-archive",
   "sources": [
     {
-      "file": "deliverables/MUT-Shuttle-Web-2026-09-28-booking-management.zip",
-      "sha256": "69317ec2667f8f959ea4c8465fd2730ed9b684d742fa567ec684d5d65f58c64d"
+      "file": "deliverables/MUT-Shuttle-Web-2026-09-29-report-data.zip",
+      "sha256": "ed277a8022d7b1360a117ca9f1ddc895be2c7e695d9f18d7199b8acb6942cdac"
     }
   ],
   "historyReconstructedFromSavedFiles": true,

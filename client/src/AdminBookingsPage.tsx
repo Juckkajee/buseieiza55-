@@ -34,6 +34,8 @@ export default function AdminBookingsPage({
   const [selectedId, setSelectedId] = useState(""),
     [cancelId, setCancelId] = useState(""),
     [reason, setReason] = useState("")
+  const [page, setPage] = useState(1)
+  useEffect(() => setPage(1), [search, status, date])
   const load = useCallback(async () => {
     setLoading(true)
     try {
@@ -55,6 +57,9 @@ export default function AdminBookingsPage({
   )
   const selected = bookings.find((b) => b.bookingId === selectedId),
     cancelling = bookings.find((b) => b.bookingId === cancelId)
+  const pageCount = Math.max(1, Math.ceil(rows.length / 50)),
+    currentPage = Math.min(page, pageCount),
+    pageRows = rows.slice((currentPage - 1) * 50, currentPage * 50)
   const cancellable = (b: Booking) =>
     ["CONFIRMED", "PARTIALLY_CANCELLED"].includes(b.status) &&
     b.tripStatus !== "IN_PROGRESS" &&
@@ -253,7 +258,10 @@ export default function AdminBookingsPage({
         </Panel>
       )}
       <p className="text-xs text-[#888] mb-3">
-        แสดง {rows.length} จาก {bookings.length} รายการ
+        พบ {rows.length.toLocaleString()} จาก {bookings.length.toLocaleString()}{" "}
+        รายการ
+        {rows.length > 0 &&
+          ` · แสดง ${(currentPage - 1) * 50 + 1}–${Math.min(currentPage * 50, rows.length)} (หน้าละ 50)`}
       </p>
       {loading ? (
         <p className="text-sm text-[#888]">กำลังโหลดการจอง…</p>
@@ -267,7 +275,7 @@ export default function AdminBookingsPage({
             "สถานะ",
             "จัดการ",
           ]}
-          rows={rows.map((b) => [
+          rows={pageRows.map((b) => [
             <span className="mono text-xs text-[#f5a623] break-all">
               {b.bookingId}
             </span>,
@@ -340,6 +348,30 @@ export default function AdminBookingsPage({
             </div>,
           ])}
         />
+      )}
+      {!loading && pageCount > 1 && (
+        <nav
+          aria-label="หน้ารายการจอง"
+          className="flex items-center justify-end gap-4 mt-5 text-sm"
+        >
+          <button
+            className={outline}
+            disabled={currentPage <= 1}
+            onClick={() => setPage(currentPage - 1)}
+          >
+            ก่อนหน้า
+          </button>
+          <span>
+            หน้า {currentPage} / {pageCount}
+          </span>
+          <button
+            className={outline}
+            disabled={currentPage >= pageCount}
+            onClick={() => setPage(currentPage + 1)}
+          >
+            ถัดไป
+          </button>
+        </nav>
       )}
     </div>
   )

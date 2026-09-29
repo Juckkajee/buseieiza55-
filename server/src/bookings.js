@@ -25,9 +25,15 @@ export async function bookings(db, userId) {
     FROM BUS_BOOKING_DETAILS d JOIN BUS_BOOKINGS b ON b.booking_id=d.booking_id JOIN BUS_ROUTE_STOPS rp ON rp.route_stop_id=d.pickup_route_stop_id JOIN BUS_STOPS p ON p.stop_id=rp.stop_id JOIN BUS_ROUTE_STOPS rq ON rq.route_stop_id=d.dropoff_route_stop_id JOIN BUS_STOPS q ON q.stop_id=rq.stop_id ${userId ? "WHERE b.user_id=:userId" : ""} ORDER BY d.ticket_no`,
     userId ? { userId } : {},
   )
+  const ticketsByBooking = new Map()
+  for (const ticket of details) {
+    const group = ticketsByBooking.get(ticket.bookingId) || []
+    group.push(ticket)
+    ticketsByBooking.set(ticket.bookingId, group)
+  }
   return rows.map((b) => ({
     ...b,
-    tickets: details.filter((d) => d.bookingId === b.bookingId),
+    tickets: ticketsByBooking.get(b.bookingId) || [],
   }))
 }
 export async function createBookings(db, userId, items, now = Date.now()) {
