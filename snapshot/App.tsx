@@ -715,6 +715,15 @@ function AdminRoutes() {
   const [newStopName, setNewStopName] = useState("");
   const [newStopMin, setNewStopMin] = useState("");
   const [showAddStop, setShowAddStop] = useState(false);
+  const [stopAnchor, setStopAnchor] = useState(0);
+  const [stopSide, setStopSide] = useState<"before" | "after">("after");
+  const [nextStopMin, setNextStopMin] = useState("5");
+  const [stopError, setStopError] = useState("");
+  const insertIndex = route.stops.length ? stopAnchor + (stopSide === "after" ? 1 : 0) : 0;
+  const [editRoundId, setEditRoundId] = useState<number | null>(null);
+  const [roundError, setRoundError] = useState("");
+  const [deleteRoundId, setDeleteRoundId] = useState<number | null>(null);
+  const [deletedRound, setDeletedRound] = useState<{ routeId: number; value: RouteEntry["schedule"][number] } | null>(null);
 
   const [showAddRound, setShowAddRound] = useState(false);
   const [roundTime, setRoundTime] = useState("");
@@ -722,38 +731,103 @@ function AdminRoutes() {
   const [roundVehicle, setRoundVehicle] = useState("");
 
   const updateRoute = (id: number, fn: (r: RouteEntry) => RouteEntry) => {
-    setRoutes(prev => prev.map(r => r.id === id ? fn(r) : r));
+    setRoutes(prev => prev.map(r => {
+      if (r.id !== id) return r;
+      const updated = fn(r);
+      const stops = updated.stops.map((stop, index) => ({ ...stop, min: index === 0 ? null : stop.min }));
+      return { ...updated, stops, totalMin: stops.reduce((sum, stop) => sum + (stop.min ?? 0), 0) };
+    }));
   };
 
-  const deleteStop = (idx: number) => updateRoute(activeRoute, r => ({ ...r, stops: r.stops.filter((_, i) => i !== idx) }));
+  const deleteStop = (idx: number) => {
+    updateRoute(activeRoute, r => ({ ...r, stops: r.stops.filter((_, i) => i !== idx) }));
+    setEditStopIdx(null); setShowAddStop(false); setStopError("");
+  };
 
   const startEditStop = (idx: number) => {
-    setEditStopIdx(idx);
+    setStopError(""); setShowAddStop(false); setEditStopIdx(idx);
     setEditStopName(route.stops[idx].name);
     setEditStopMin(route.stops[idx].min?.toString() ?? "");
   };
 
   const saveEditStop = () => {
     if (editStopIdx === null) return;
+    if (!editStopName.trim() || (editStopIdx > 0 && (!Number.isInteger(Number(editStopMin)) || Number(editStopMin) < 1))) {
+      setStopError("กรอกชื่อจุดจอดและเวลาเดินทางเป็นจำนวนนาทีมากกว่า 0"); return;
+    }
     updateRoute(activeRoute, r => ({
-      ...r, stops: r.stops.map((s, i) => i === editStopIdx ? { name: editStopName, min: editStopMin ? Number(editStopMin) : null } : s),
+      ...r, stops: r.stops.map((stop, i) => i === editStopIdx ? { name: editStopName.trim(), min: i === 0 ? null : Number(editStopMin) } : stop),
     }));
+    setStopError("");
     setEditStopIdx(null);
   };
 
-  const addStop = () => {
-    if (!newStopName) return;
-    updateRoute(activeRoute, r => ({ ...r, stops: [...r.stops, { name: newStopName, min: newStopMin ? Number(newStopMin) : null }] }));
-    setNewStopName(""); setNewStopMin(""); setShowAddStop(false);
+  const openAddStop = () => {
+    setEditStopIdx(null); setStopError(""); setNewStopName(""); setNewStopMin("5");
+    setStopAnchor(Math.max(0, route.stops.length - 1)); setStopSide("after"); setNextStopMin("5"); setShowAddStop(true);
   };
-
+  const choosePlacement = (anchor: number, side: "before" | "after") => {
+    setStopAnchor(anchor); setStopSide(side); setStopError("");
+    const index = anchor + (side === "after" ? 1 : 0);
+    setNextStopMin(String(route.stops[index]?.min || 5));
+  };
+  const addStop = () => {
+    const validMinutes = (value: string) => Number.isInteger(Number(value)) && Number(value) > 0;
+    if (!newStopName.trim() || (insertIndex > 0 && !validMinutes(newStopMin)) || (insertIndex < route.stops.length && !validMinutes(nextStopMin))) {
+      setStopError("กรอกชื่อจุดจอดและเวลาเดินทางแต่ละช่วงเป็นจำนวนนาทีมากกว่า 0"); return;
+    }
+    updateRoute(activeRoute, r => {
+      const stops = r.stops.map(stop => ({ ...stop }));
+      stops.splice(insertIndex, 0, { name: newStopName.trim(), min: insertIndex === 0 ? null : Number(newStopMin) });
+      if (stops[insertIndex + 1]) stops[insertIndex + 1].min = Number(nextStopMin);
+      return { ...r, stops };
+    });
+    setNewStopName(""); setNewStopMin(""); setShowAddStop(false); setStopError("");
+  };
+  const openRound = (round?: RouteEntry["schedule"][number]) => {
+    setEditRoundId(round?.round ?? null); setRoundTime(round?.time ?? "");
+    setRoundDriver(round?.driver ?? ""); setRoundVehicle(round?.vehicle ?? "");
+    setRoundError(""); setDeleteRoundId(null); setShowAddRound(true);
+  };
   const addRound = () => {
-    if (!roundTime) return;
-    updateRoute(activeRoute, r => ({
-      ...r,
-      schedule: [...r.schedule, { round: r.schedule.length + 1, time: roundTime, driver: roundDriver || "TBD", vehicle: roundVehicle || "TBD", type: "รถตู้" as const, seats: 9 }],
-    }));
-    setRoundTime(""); setRoundDriver(""); setRoundVehicle(""); setShowAddRound(false);
+    const vehicle = INITIAL_VEHICLES.find(v => v.plate === roundVehicle);
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(roundTime) || !roundDriver || !vehicle) {
+      setRoundError("กรุณาระบุเวลา คนขับ และรถให้ครบ"); return;
+    }
+    if (vehicle.status !== "พร้อมใช้") { setRoundError("รถที่เลือกอยู่ระหว่างซ่อมบำรุง กรุณาเลือกรถพร้อมใช้งาน"); return; }
+    const minutes = (time: string) => { const [h, m] = time.split(":").map(Number); return h * 60 + m; };
+    const start = minutes(roundTime);
+    const duration = route.stops.reduce((sum, stop) => sum + (stop.min ?? 0), 0);
+    const conflict = routes.flatMap(r => r.schedule.map(round => ({ ...round, route: r }))).find(round => {
+      if (round.route.id === activeRoute && round.round === editRoundId) return false;
+      if (round.vehicle !== roundVehicle && round.driver !== roundDriver) return false;
+      const otherDuration = round.route.stops.reduce((sum, stop) => sum + (stop.min ?? 0), 0);
+      return [-1440, 0, 1440].some(offset => {
+        const otherStart = minutes(round.time) + offset;
+        return start < otherStart + Math.max(1, otherDuration) && otherStart < start + Math.max(1, duration);
+      });
+    });
+    if (conflict) { setRoundError(`เวลาใช้งานคนขับหรือรถซ้อนกับ ${conflict.route.name} รอบ ${conflict.round} (${conflict.time} น.)`); return; }
+    updateRoute(activeRoute, r => {
+      const nextRound = { round: editRoundId ?? Math.max(0, ...r.schedule.map(s => s.round)) + 1,
+        time: roundTime, driver: roundDriver, vehicle: vehicle.plate, type: vehicle.type, seats: vehicle.seats };
+      return { ...r, schedule: (editRoundId === null ? [...r.schedule, nextRound] : r.schedule.map(s => s.round === editRoundId ? nextRound : s)).sort((a, b) => a.time.localeCompare(b.time)) };
+    });
+    setShowAddRound(false); setEditRoundId(null); setRoundError("");
+  };
+  const deleteRound = (id: number) => {
+    const value = route.schedule.find(round => round.round === id);
+    if (!value) return;
+    setDeletedRound({ routeId: activeRoute, value });
+    updateRoute(activeRoute, r => ({ ...r, schedule: r.schedule.filter(round => round.round !== id) }));
+    setDeleteRoundId(null); if (editRoundId === id) setShowAddRound(false);
+  };
+  const undoDeleteRound = () => {
+    if (!deletedRound) return;
+    updateRoute(deletedRound.routeId, r => ({ ...r, schedule: [...r.schedule, { ...deletedRound.value,
+      round: r.schedule.some(s => s.round === deletedRound.value.round) ? Math.max(0, ...r.schedule.map(s => s.round)) + 1 : deletedRound.value.round,
+    }].sort((a, b) => a.time.localeCompare(b.time)) }));
+    setDeletedRound(null);
   };
 
   return (
@@ -761,7 +835,7 @@ function AdminRoutes() {
       <SectionTitle>จัดการเส้นทาง (Route Management)</SectionTitle>
       <div className="flex gap-2 mb-6 flex-wrap">
         {routes.map(r => (
-          <button key={r.id} onClick={() => { setActiveRoute(r.id); setEditStopIdx(null); setShowAddStop(false); setShowAddRound(false); }}
+          <button key={r.id} onClick={() => { setActiveRoute(r.id); setEditStopIdx(null); setShowAddStop(false); setShowAddRound(false); setStopError(""); setRoundError(""); setEditRoundId(null); setDeleteRoundId(null); }}
             className={`px-4 py-2 text-sm border transition-colors ${activeRoute === r.id ? "bg-[#f5a623] border-[#f5a623] text-[#0a0a0a] font-bold" : "border-[#2a2a2a] text-[#888] hover:border-[#555]"}`}>
             {r.name}
           </button>
@@ -769,12 +843,12 @@ function AdminRoutes() {
         <button className="px-4 py-2 text-sm border border-dashed border-[#333] text-[#555] hover:border-[#555] transition-colors">+ เพิ่มเส้นทาง</button>
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {/* Left: stops */}
         <div className="border border-[#2a2a2a] p-5">
           <div className="flex justify-between items-center mb-4">
             <p className="font-bold">{route.name}</p>
-            <Chip label={`รวม ${route.totalMin} นาที`} color="amber" />
+            <Chip label={`รวม ${route.stops.reduce((sum, stop) => sum + (stop.min ?? 0), 0)} นาที`} color="amber" />
           </div>
           <div className="relative pl-4 mb-4">
             {route.stops.map((s, i) => (
@@ -785,9 +859,9 @@ function AdminRoutes() {
                 </div>
                 {editStopIdx === i ? (
                   <div className="flex-1 flex gap-2 items-center pb-4">
-                    <input value={editStopName} onChange={e => setEditStopName(e.target.value)}
+                    <input aria-label="แก้ไขชื่อจุดจอด" value={editStopName} onChange={e => setEditStopName(e.target.value)}
                       className="flex-1 bg-[#0a0a0a] border border-[#f5a623] px-2 py-1 text-sm outline-none" />
-                    <input value={editStopMin} onChange={e => setEditStopMin(e.target.value)} placeholder="นาที"
+                    <input aria-label="แก้ไขเวลาเดินทาง" type="number" min="1" disabled={i === 0} value={editStopMin} onChange={e => setEditStopMin(e.target.value)} placeholder="นาที"
                       className="w-16 bg-[#0a0a0a] border border-[#2a2a2a] px-2 py-1 text-sm outline-none" />
                     <button onClick={saveEditStop} className="mono text-[10px] text-[#f5a623] hover:text-white">บันทึก</button>
                     <button onClick={() => setEditStopIdx(null)} className="mono text-[10px] text-[#555]">ยกเลิก</button>
@@ -795,12 +869,12 @@ function AdminRoutes() {
                 ) : (
                   <div className="flex-1 flex items-start justify-between pb-4">
                     <div>
-                      <p className="text-sm font-medium">{s.name}</p>
+                      <p className="text-sm font-medium"><span className="mono text-[#888] mr-2">{i + 1}.</span>{s.name}</p>
                       {s.min && <p className="mono text-[10px] text-[#f5a623]">+{s.min} นาที</p>}
                     </div>
                     <div className="flex gap-2 shrink-0 ml-2">
-                      <button onClick={() => startEditStop(i)} className="mono text-[10px] text-[#888] hover:text-[#f5a623]">แก้ไข</button>
-                      <button onClick={() => deleteStop(i)} className="mono text-[10px] text-[#888] hover:text-[#e74c3c]">ลบ</button>
+                      <button aria-label={`แก้ไขจุดจอด ${i + 1} ${s.name}`} onClick={() => startEditStop(i)} className="mono text-[10px] text-[#888] hover:text-[#f5a623]">แก้ไข</button>
+                      <button aria-label={`ลบจุดจอด ${i + 1} ${s.name}`} onClick={() => deleteStop(i)} className="mono text-[10px] text-[#888] hover:text-[#e74c3c]">ลบ</button>
                     </div>
                   </div>
                 )}
@@ -808,20 +882,39 @@ function AdminRoutes() {
             ))}
           </div>
 
+          {stopError && <p role="alert" className="mb-3 text-sm text-[#ff8e84]">{stopError}</p>}
           {showAddStop ? (
             <div className="border border-[#f5a623]/30 bg-[#f5a623]/5 p-3 space-y-2">
               <p className="mono text-[10px] text-[#f5a623] tracking-widest">เพิ่มจุดจอด</p>
-              <input value={newStopName} onChange={e => setNewStopName(e.target.value)} placeholder="ชื่อจุดจอด"
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="text-xs text-[#aaa]">ตำแหน่งแทรก
+                  <select aria-label="ตำแหน่งแทรก" value={stopSide} onChange={e => choosePlacement(stopAnchor, e.target.value as "before" | "after")} className="mt-1 w-full bg-[#111] border border-[#333] p-2 text-sm text-[#eee]">
+                    <option value="before">ก่อนจุดจอดที่เลือก</option><option value="after">หลังจุดจอดที่เลือก</option>
+                  </select>
+                </label>
+                <label className="text-xs text-[#aaa]">อ้างอิงจุดจอด
+                  <select aria-label="อ้างอิงจุดจอด" value={stopAnchor} disabled={!route.stops.length} onChange={e => choosePlacement(Number(e.target.value), stopSide)} className="mt-1 w-full bg-[#111] border border-[#333] p-2 text-sm text-[#eee]">
+                    {route.stops.map((stop, index) => <option key={index} value={index}>{index + 1}. {stop.name}</option>)}
+                    {!route.stops.length && <option value={0}>ยังไม่มีจุดจอด</option>}
+                  </select>
+                </label>
+              </div>
+              <p className="text-xs text-[#f5a623]">จุดใหม่จะอยู่ลำดับที่ {insertIndex + 1} {route.stops.length ? `(${stopSide === "before" ? "ก่อน" : "หลัง"}จุดที่ ${stopAnchor + 1} ${route.stops[stopAnchor]?.name})` : "(จุดเริ่มต้น)"}</p>
+              <input aria-label="ชื่อจุดจอดใหม่" value={newStopName} onChange={e => setNewStopName(e.target.value)} placeholder="ชื่อจุดจอด"
                 className="w-full bg-[#0a0a0a] border border-[#2a2a2a] px-3 py-2 text-sm outline-none focus:border-[#f5a623]" />
-              <input value={newStopMin} onChange={e => setNewStopMin(e.target.value)} placeholder="เวลาจาก stop ก่อนหน้า (นาที)"
-                className="w-full bg-[#0a0a0a] border border-[#2a2a2a] px-3 py-2 text-sm outline-none focus:border-[#f5a623]" />
+              {insertIndex > 0 && <label className="block text-xs text-[#aaa]">จาก {route.stops[insertIndex - 1]?.name} ถึงจุดใหม่ (นาที)
+                <input aria-label="เวลาเดินทางถึงจุดใหม่" type="number" min="1" value={newStopMin} onChange={e => setNewStopMin(e.target.value)} className="mt-1 w-full bg-[#111] border border-[#333] px-3 py-2 text-sm" />
+              </label>}
+              {insertIndex < route.stops.length && <label className="block text-xs text-[#aaa]">จากจุดใหม่ถึง {route.stops[insertIndex]?.name} (นาที)
+                <input aria-label="เวลาเดินทางถึงจุดถัดไป" type="number" min="1" value={nextStopMin} onChange={e => setNextStopMin(e.target.value)} className="mt-1 w-full bg-[#111] border border-[#333] px-3 py-2 text-sm" />
+              </label>}
               <div className="flex gap-2">
                 <button onClick={addStop} className="bg-[#f5a623] text-[#0a0a0a] font-bold px-4 py-1.5 text-sm">เพิ่ม</button>
                 <button onClick={() => setShowAddStop(false)} className="border border-[#2a2a2a] px-4 py-1.5 text-sm text-[#888]">ยกเลิก</button>
               </div>
             </div>
           ) : (
-            <button onClick={() => setShowAddStop(true)}
+            <button onClick={openAddStop}
               className="w-full border border-dashed border-[#333] py-2 text-sm text-[#555] hover:border-[#f5a623] hover:text-[#f5a623] transition-colors">
               + เพิ่มจุดจอด
             </button>
@@ -833,28 +926,34 @@ function AdminRoutes() {
           <p className="mono text-[10px] text-[#555] tracking-widest mb-4">รอบเดินรถ — {route.name} ({route.schedule.length} รอบ)</p>
           <div className="space-y-2 mb-4">
             {route.schedule.map(s => (
-              <div key={s.round} className="flex items-center justify-between border border-[#2a2a2a] px-4 py-3">
+              <div key={s.round} className="flex flex-wrap items-center justify-between gap-3 border border-[#2a2a2a] px-4 py-3">
                 <div>
                   <span className="mono text-[#f5a623] font-bold mr-3">{s.time} น.</span>
                   <span className="text-sm text-[#d0ccc5]">{s.driver}</span>
                   <span className="text-xs text-[#888] ml-2">· {s.vehicle} ({s.type} {s.seats} ที่)</span>
                 </div>
-                <Chip label={`รอบ ${s.round}`} color="gray" />
+                <div className="flex flex-wrap items-center gap-3">
+                  <Chip label={`รอบ ${s.round}`} color="gray" />
+                  <button aria-label={`แก้ไขรอบ ${s.round} เวลา ${s.time}`} onClick={() => openRound(s)} className="text-xs text-[#f5a623] hover:underline">แก้ไข</button>
+                  <button aria-label={`ลบรอบ ${s.round} เวลา ${s.time}`} onClick={() => { setDeleteRoundId(s.round); setDeletedRound(null); }} className="text-xs text-[#ed827a] hover:underline">ลบ</button>
+                </div>
+                {deleteRoundId === s.round && <div className="w-full flex flex-wrap items-center gap-3 border-t border-[#333] pt-3 text-xs"><span>ลบรอบ {s.round} เวลา {s.time} น.?</span><button onClick={() => deleteRound(s.round)} className="px-3 py-1.5 bg-[#b63c35] text-white">ยืนยันลบรอบ</button><button onClick={() => setDeleteRoundId(null)} className="text-[#aaa]">ยกเลิกการลบ</button></div>}
               </div>
             ))}
           </div>
 
+          {deletedRound && <div role="status" className="mb-4 flex flex-wrap gap-3 text-sm text-[#aaa]">ลบรอบ {deletedRound.value.round} แล้ว <button onClick={undoDeleteRound} className="text-[#f5a623] underline">เลิกทำการลบ</button></div>}
           {showAddRound ? (
             <div className="border border-[#f5a623]/30 bg-[#f5a623]/5 p-4 space-y-3">
-              <p className="mono text-[10px] text-[#f5a623] tracking-widest">เพิ่มรอบเดินรถ</p>
+              <p className="mono text-[10px] text-[#f5a623] tracking-widest">{editRoundId === null ? "เพิ่มรอบเดินรถ" : `แก้ไขรอบเดินรถ ${editRoundId}`}</p>
               <div>
                 <label className="mono text-[10px] text-[#888] tracking-widest block mb-1">เวลา (เช่น 08:00)</label>
-                <input value={roundTime} onChange={e => setRoundTime(e.target.value)} placeholder="08:00"
+                <input aria-label="เวลาออกเดินรถ" type="time" value={roundTime} onChange={e => setRoundTime(e.target.value)} placeholder="08:00"
                   className="w-full bg-[#0a0a0a] border border-[#2a2a2a] px-3 py-2 text-sm outline-none focus:border-[#f5a623]" />
               </div>
               <div>
                 <label className="mono text-[10px] text-[#888] tracking-widest block mb-1">คนขับ</label>
-                <select value={roundDriver} onChange={e => setRoundDriver(e.target.value)}
+                <select aria-label="คนขับรอบเดินรถ" value={roundDriver} onChange={e => setRoundDriver(e.target.value)}
                   className="w-full bg-[#0a0a0a] border border-[#2a2a2a] px-3 py-2 text-sm outline-none focus:border-[#f5a623] text-[#f0ede6]">
                   <option value="">-- เลือกคนขับ --</option>
                   {EMPLOYEES.filter(e => e.role === "คนขับรถ").map(e => <option key={e.id} value={e.name}>{e.name}</option>)}
@@ -862,19 +961,20 @@ function AdminRoutes() {
               </div>
               <div>
                 <label className="mono text-[10px] text-[#888] tracking-widest block mb-1">รถ (ทะเบียน)</label>
-                <select value={roundVehicle} onChange={e => setRoundVehicle(e.target.value)}
+                <select aria-label="รถของรอบเดินรถ" value={roundVehicle} onChange={e => setRoundVehicle(e.target.value)}
                   className="w-full bg-[#0a0a0a] border border-[#2a2a2a] px-3 py-2 text-sm outline-none focus:border-[#f5a623] text-[#f0ede6]">
                   <option value="">-- เลือกรถ --</option>
                   {INITIAL_VEHICLES.map(v => <option key={v.id} value={v.plate}>{v.plate} ({v.type})</option>)}
                 </select>
               </div>
+              {roundError && <p role="alert" className="text-sm text-[#ff8e84]">{roundError}</p>}
               <div className="flex gap-2">
-                <button onClick={addRound} className="bg-[#f5a623] text-[#0a0a0a] font-bold px-4 py-2 text-sm hover:bg-[#e09520]">+ เพิ่มรอบ</button>
+                <button onClick={addRound} className="bg-[#f5a623] text-[#0a0a0a] font-bold px-4 py-2 text-sm hover:bg-[#e09520]">{editRoundId === null ? "+ เพิ่มรอบ" : "บันทึกรอบเดินรถ"}</button>
                 <button onClick={() => setShowAddRound(false)} className="border border-[#2a2a2a] px-4 py-2 text-sm text-[#888]">ยกเลิก</button>
               </div>
             </div>
           ) : (
-            <button onClick={() => setShowAddRound(true)}
+            <button onClick={() => openRound()}
               className="w-full border border-dashed border-[#333] py-2 text-sm text-[#555] hover:border-[#f5a623] hover:text-[#f5a623] transition-colors">
               + เพิ่มรอบเดินรถ
             </button>
@@ -962,16 +1062,21 @@ function AdminEmployees() {
   const [empEmail, setEmpEmail] = useState("");
   const [empUsername, setEmpUsername] = useState("");
   const [empPassword, setEmpPassword] = useState("");
-  const [employees, setEmployees] = useState([...EMPLOYEES]);
+  const [employees, setEmployees] = useState<(typeof EMPLOYEES[number] & { email?: string; username?: string; hasPassword?: boolean })[]>([...EMPLOYEES]);
+  const [employeeError, setEmployeeError] = useState("");
 
   const deptCode = DEPT_MAP[empDept] ?? "";
 
   const handleSave = () => {
-    if (!empName || !empDept || !empRole) return;
+    if (!empName.trim() || !empDept || !empRole) { setEmployeeError("กรุณากรอกชื่อ แผนก และตำแหน่ง"); return; }
+    if (empEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(empEmail.trim())) { setEmployeeError("รูปแบบอีเมลไม่ถูกต้อง"); return; }
+    if (empUsername.trim() && employees.some(e => e.username?.toLowerCase() === empUsername.trim().toLowerCase())) { setEmployeeError("Username นี้มีอยู่แล้ว"); return; }
     const newEmp = {
-      id: `E${String(employees.length + 1).padStart(3, "0")}`,
-      name: empName, deptCode, dept: empDept, role: empRole, phone: empPhone,
+      id: `E${String(Math.max(0, ...employees.map(e => Number(e.id.slice(1)) || 0)) + 1).padStart(3, "0")}`,
+      name: empName.trim(), deptCode, dept: empDept, role: empRole, phone: empPhone.trim(),
+      email: empEmail.trim(), username: empUsername.trim(), hasPassword: empPassword.length > 0,
     };
+    setEmployeeError("");
     setEmployees(prev => [...prev, newEmp]);
     setShowForm(false);
     setEmpName(""); setEmpDept(""); setEmpRole(""); setEmpPhone("");
@@ -991,15 +1096,15 @@ function AdminEmployees() {
       {showForm && (
         <div className="border border-[#f5a623]/40 bg-[#f5a623]/5 p-5 mb-6">
           <p className="mono text-[10px] text-[#f5a623] tracking-widest mb-4">ฟอร์มเพิ่มพนักงาน</p>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="mono text-[10px] text-[#888] tracking-widest block mb-1">ชื่อ-นามสกุล</label>
-              <input value={empName} onChange={e => setEmpName(e.target.value)}
+              <input aria-label="ชื่อ-นามสกุลพนักงาน" value={empName} onChange={e => setEmpName(e.target.value)}
                 className="w-full bg-[#0a0a0a] border border-[#2a2a2a] px-3 py-2 text-sm outline-none focus:border-[#f5a623] transition-colors" />
             </div>
             <div>
               <label className="mono text-[10px] text-[#888] tracking-widest block mb-1">แผนก</label>
-              <select value={empDept} onChange={e => setEmpDept(e.target.value)}
+              <select aria-label="แผนกพนักงาน" value={empDept} onChange={e => setEmpDept(e.target.value)}
                 className="w-full bg-[#0a0a0a] border border-[#2a2a2a] px-3 py-2 text-sm outline-none focus:border-[#f5a623] transition-colors text-[#f0ede6]">
                 <option value="">-- เลือกแผนก --</option>
                 {Object.keys(DEPT_MAP).map(d => <option key={d} value={d}>{d}</option>)}
@@ -1012,7 +1117,7 @@ function AdminEmployees() {
             </div>
             <div>
               <label className="mono text-[10px] text-[#888] tracking-widest block mb-1">ตำแหน่ง</label>
-              <select value={empRole} onChange={e => setEmpRole(e.target.value)}
+              <select aria-label="ตำแหน่งพนักงาน" value={empRole} onChange={e => setEmpRole(e.target.value)}
                 className="w-full bg-[#0a0a0a] border border-[#2a2a2a] px-3 py-2 text-sm outline-none focus:border-[#f5a623] transition-colors text-[#f0ede6]">
                 <option value="">-- เลือกตำแหน่ง --</option>
                 {POSITION_LIST.map(p => <option key={p} value={p}>{p}</option>)}
@@ -1020,26 +1125,27 @@ function AdminEmployees() {
             </div>
             <div>
               <label className="mono text-[10px] text-[#888] tracking-widest block mb-1">เบอร์โทร</label>
-              <input value={empPhone} onChange={e => setEmpPhone(e.target.value)}
+              <input aria-label="เบอร์โทรพนักงาน" value={empPhone} onChange={e => setEmpPhone(e.target.value)}
                 className="w-full bg-[#0a0a0a] border border-[#2a2a2a] px-3 py-2 text-sm outline-none focus:border-[#f5a623] transition-colors" />
             </div>
             <div>
               <label className="mono text-[10px] text-[#888] tracking-widest block mb-1">อีเมล</label>
-              <input type="email" value={empEmail} onChange={e => setEmpEmail(e.target.value)}
+              <input type="email" aria-label="อีเมลพนักงาน" value={empEmail} onChange={e => setEmpEmail(e.target.value)}
                 className="w-full bg-[#0a0a0a] border border-[#2a2a2a] px-3 py-2 text-sm outline-none focus:border-[#f5a623] transition-colors" />
             </div>
             <div>
               <label className="mono text-[10px] text-[#888] tracking-widest block mb-1">Username</label>
-              <input value={empUsername} onChange={e => setEmpUsername(e.target.value)}
+              <input aria-label="Username พนักงาน" value={empUsername} onChange={e => setEmpUsername(e.target.value)}
                 className="w-full bg-[#0a0a0a] border border-[#2a2a2a] px-3 py-2 text-sm outline-none focus:border-[#f5a623] transition-colors" />
             </div>
             <div>
               <label className="mono text-[10px] text-[#888] tracking-widest block mb-1">Password</label>
-              <input type="password" value={empPassword} onChange={e => setEmpPassword(e.target.value)}
+              <input type="password" aria-label="Password พนักงาน" value={empPassword} onChange={e => setEmpPassword(e.target.value)}
                 placeholder="••••••••"
                 className="w-full bg-[#0a0a0a] border border-[#2a2a2a] px-3 py-2 text-sm outline-none focus:border-[#f5a623] transition-colors placeholder:text-[#444]" />
             </div>
           </div>
+          {employeeError && <p role="alert" className="mt-3 text-sm text-[#ff8e84]">{employeeError}</p>}
           <div className="flex gap-3 mt-4">
             <button onClick={handleSave} className="bg-[#f5a623] text-[#0a0a0a] font-bold px-6 py-2 text-sm hover:bg-[#e09520]">บันทึก</button>
             <button onClick={() => setShowForm(false)} className="border border-[#2a2a2a] px-6 py-2 text-sm text-[#888] hover:border-[#555]">ยกเลิก</button>
@@ -1049,14 +1155,17 @@ function AdminEmployees() {
 
       <div className="border border-[#2a2a2a]">
         <Table
-          headers={["รหัสพนักงาน", "ชื่อ-นามสกุล", "รหัสแผนก", "แผนก", "ตำแหน่ง", "เบอร์โทร", "จัดการ"]}
+          headers={["รหัสพนักงาน", "ชื่อ-นามสกุล", "รหัสแผนก", "แผนก", "ตำแหน่ง", "เบอร์โทร", "Email", "Username", "Password", "จัดการ"]}
           rows={employees.map(e => [
             <span className="mono text-[#f5a623]">{e.id}</span>,
             <span className="font-semibold">{e.name}</span>,
             <span className="mono text-xs text-[#aaa]">{e.deptCode}</span>,
             e.dept,
             <Chip label={e.role} color={e.role === "คนขับรถ" ? "blue" : e.role === "ผู้จัดการ" ? "amber" : "gray"} />,
-            <span className="mono text-sm">{e.phone}</span>,
+            <span className="mono text-sm">{e.phone || "—"}</span>,
+            <span className="text-xs">{e.email || "—"}</span>,
+            <span className="mono text-xs">{e.username || "—"}</span>,
+            <span aria-label={e.hasPassword ? "ตั้งรหัสผ่านแล้ว" : "ยังไม่มีข้อมูลรหัสผ่าน"} className="mono tracking-widest">{e.hasPassword ? "********" : "—"}</span>,
             <div className="flex gap-2">
               <button className="mono text-[10px] text-[#888] hover:text-[#f5a623] tracking-widest">แก้ไข</button>
               <button onClick={() => setEmployees(prev => prev.filter(x => x.id !== e.id))}
@@ -1167,6 +1276,9 @@ function AdminPermissions() {
 function AdminVehicles() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([...INITIAL_VEHICLES]);
   const [showForm, setShowForm] = useState(false);
+  const [editingVehicle, setEditingVehicle] = useState<string | null>(null);
+  const [vehicleError, setVehicleError] = useState("");
+  const [vehicleNotice, setVehicleNotice] = useState("");
   const [vPlate, setVPlate] = useState("");
   const [vType, setVType] = useState<"รถตู้" | "รถบัส">("รถตู้");
   const [vSeats, setVSeats] = useState("");
@@ -1174,16 +1286,25 @@ function AdminVehicles() {
   const [vYear, setVYear] = useState("");
   const [vStatus, setVStatus] = useState<"พร้อมใช้" | "ซ่อมบำรุง">("พร้อมใช้");
 
+  const openVehicle = (vehicle?: Vehicle) => {
+    setEditingVehicle(vehicle?.id ?? null); setVPlate(vehicle?.plate ?? ""); setVType(vehicle?.type ?? "รถตู้");
+    setVSeats(vehicle ? String(vehicle.seats) : ""); setVBrand(vehicle?.brand ?? ""); setVYear(vehicle ? String(vehicle.year) : "");
+    setVStatus(vehicle?.status ?? "พร้อมใช้"); setVehicleError(""); setVehicleNotice(""); setShowForm(true);
+  };
   const handleAdd = () => {
-    if (!vPlate || !vBrand) return;
+    if (!vPlate.trim() || !vBrand.trim()) { setVehicleError("กรุณากรอกป้ายทะเบียนและยี่ห้อ/รุ่น"); return; }
+    if (vehicles.some(v => v.id !== editingVehicle && v.plate.replace(/\s/g, "").toLowerCase() === vPlate.replace(/\s/g, "").toLowerCase())) { setVehicleError("ป้ายทะเบียนนี้มีอยู่แล้ว"); return; }
+    if ((vSeats && (!Number.isInteger(Number(vSeats)) || Number(vSeats) < 1)) || (vYear && (!Number.isInteger(Number(vYear)) || Number(vYear) < 1))) { setVehicleError("จำนวนที่นั่งและปีต้องเป็นจำนวนเต็มมากกว่า 0"); return; }
     const newV: Vehicle = {
-      id: `V${String(vehicles.length + 1).padStart(3, "0")}`,
-      plate: vPlate, type: vType,
+      id: editingVehicle ?? `V${String(Math.max(0, ...vehicles.map(v => Number(v.id.slice(1)) || 0)) + 1).padStart(3, "0")}`,
+      plate: vPlate.trim(), type: vType,
       seats: vSeats ? Number(vSeats) : vType === "รถตู้" ? 9 : 20,
-      brand: vBrand, year: vYear ? Number(vYear) : new Date().getFullYear() + 543,
+      brand: vBrand.trim(), year: vYear ? Number(vYear) : new Date().getFullYear() + 543,
       status: vStatus,
     };
-    setVehicles(prev => [...prev, newV]);
+    setVehicles(prev => editingVehicle ? prev.map(v => v.id === editingVehicle ? newV : v) : [...prev, newV]);
+    setVehicleNotice(editingVehicle ? "บันทึกการแก้ไขข้อมูลรถแล้ว" : "เพิ่มรถเรียบร้อยแล้ว");
+    setEditingVehicle(null); setVehicleError("");
     setVPlate(""); setVBrand(""); setVSeats(""); setVYear(""); setVType("รถตู้"); setVStatus("พร้อมใช้");
     setShowForm(false);
   };
@@ -1195,7 +1316,7 @@ function AdminVehicles() {
     <div className="p-8">
       <div className="flex justify-between items-center mb-6">
         <SectionTitle>ข้อมูลรถ</SectionTitle>
-        <button onClick={() => setShowForm(!showForm)}
+        <button onClick={() => openVehicle()}
           className="bg-[#f5a623] text-[#0a0a0a] font-bold px-4 py-2 text-sm hover:bg-[#e09520] transition-colors">
           + เพิ่มรถ
         </button>
@@ -1203,16 +1324,16 @@ function AdminVehicles() {
 
       {showForm && (
         <div className="border border-[#f5a623]/40 bg-[#f5a623]/5 p-5 mb-6">
-          <p className="mono text-[10px] text-[#f5a623] tracking-widest mb-4">ฟอร์มเพิ่มรถ</p>
-          <div className="grid grid-cols-3 gap-4">
+          <p className="mono text-[10px] text-[#f5a623] tracking-widest mb-4">{editingVehicle ? `แก้ไขข้อมูลรถ ${editingVehicle}` : "ฟอร์มเพิ่มรถ"}</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="mono text-[10px] text-[#888] tracking-widest block mb-1">ป้ายทะเบียน</label>
-              <input value={vPlate} onChange={e => setVPlate(e.target.value)}
+              <input aria-label="ป้ายทะเบียนรถ" value={vPlate} onChange={e => setVPlate(e.target.value)}
                 className="w-full bg-[#0a0a0a] border border-[#2a2a2a] px-3 py-2 text-sm outline-none focus:border-[#f5a623]" />
             </div>
             <div>
               <label className="mono text-[10px] text-[#888] tracking-widest block mb-1">ประเภทรถ</label>
-              <select value={vType} onChange={e => setVType(e.target.value as "รถตู้" | "รถบัส")}
+              <select aria-label="ประเภทรถ" value={vType} onChange={e => setVType(e.target.value as "รถตู้" | "รถบัส")}
                 className="w-full bg-[#0a0a0a] border border-[#2a2a2a] px-3 py-2 text-sm outline-none focus:border-[#f5a623] text-[#f0ede6]">
                 <option value="รถตู้">รถตู้</option>
                 <option value="รถบัส">รถบัส</option>
@@ -1220,35 +1341,37 @@ function AdminVehicles() {
             </div>
             <div>
               <label className="mono text-[10px] text-[#888] tracking-widest block mb-1">จำนวนที่นั่ง</label>
-              <input value={vSeats} onChange={e => setVSeats(e.target.value)} placeholder={vType === "รถตู้" ? "9" : "20"}
+              <input aria-label="จำนวนที่นั่งรถ" value={vSeats} onChange={e => setVSeats(e.target.value)} placeholder={vType === "รถตู้" ? "9" : "20"}
                 className="w-full bg-[#0a0a0a] border border-[#2a2a2a] px-3 py-2 text-sm outline-none focus:border-[#f5a623]" />
             </div>
             <div>
               <label className="mono text-[10px] text-[#888] tracking-widest block mb-1">ยี่ห้อ/รุ่น</label>
-              <input value={vBrand} onChange={e => setVBrand(e.target.value)}
+              <input aria-label="ยี่ห้อและรุ่นรถ" value={vBrand} onChange={e => setVBrand(e.target.value)}
                 className="w-full bg-[#0a0a0a] border border-[#2a2a2a] px-3 py-2 text-sm outline-none focus:border-[#f5a623]" />
             </div>
             <div>
               <label className="mono text-[10px] text-[#888] tracking-widest block mb-1">ปี (พ.ศ.)</label>
-              <input value={vYear} onChange={e => setVYear(e.target.value)} placeholder="2567"
+              <input aria-label="ปีรถ พ.ศ." value={vYear} onChange={e => setVYear(e.target.value)} placeholder="2567"
                 className="w-full bg-[#0a0a0a] border border-[#2a2a2a] px-3 py-2 text-sm outline-none focus:border-[#f5a623]" />
             </div>
             <div>
               <label className="mono text-[10px] text-[#888] tracking-widest block mb-1">สถานะ</label>
-              <select value={vStatus} onChange={e => setVStatus(e.target.value as "พร้อมใช้" | "ซ่อมบำรุง")}
+              <select aria-label="สถานะรถ" value={vStatus} onChange={e => setVStatus(e.target.value as "พร้อมใช้" | "ซ่อมบำรุง")}
                 className="w-full bg-[#0a0a0a] border border-[#2a2a2a] px-3 py-2 text-sm outline-none focus:border-[#f5a623] text-[#f0ede6]">
                 <option value="พร้อมใช้">พร้อมใช้</option>
                 <option value="ซ่อมบำรุง">ซ่อมบำรุง</option>
               </select>
             </div>
           </div>
+          {vehicleError && <p role="alert" className="mt-3 text-sm text-[#ff8e84]">{vehicleError}</p>}
           <div className="flex gap-3 mt-4">
-            <button onClick={handleAdd} className="bg-[#f5a623] text-[#0a0a0a] font-bold px-6 py-2 text-sm hover:bg-[#e09520]">บันทึก</button>
+            <button onClick={handleAdd} className="bg-[#f5a623] text-[#0a0a0a] font-bold px-6 py-2 text-sm hover:bg-[#e09520]">{editingVehicle ? "บันทึกการแก้ไขรถ" : "บันทึก"}</button>
             <button onClick={() => setShowForm(false)} className="border border-[#2a2a2a] px-6 py-2 text-sm text-[#888] hover:border-[#555]">ยกเลิก</button>
           </div>
         </div>
       )}
 
+      {vehicleNotice && <p role="status" className="mb-4 text-sm text-[#2ecc71]">{vehicleNotice}</p>}
       {/* Summary cards */}
       <div className="grid grid-cols-4 gap-4 mb-6">
         <div className="border border-[#2a2a2a] p-4">
@@ -1285,8 +1408,10 @@ function AdminVehicles() {
               <span className="mono">{v.seats} ที่นั่ง</span>,
               <span className="mono text-[#888]">{v.year}</span>,
               <Chip label={v.status} color={v.status === "พร้อมใช้" ? "green" : "amber"} />,
-              <button onClick={() => setVehicles(prev => prev.filter(x => x.id !== v.id))}
-                className="mono text-[10px] text-[#888] hover:text-[#e74c3c] tracking-widest">ลบ</button>,
+              <div className="flex items-center gap-3">
+                <button aria-label={`แก้ไขรถ ${v.plate}`} onClick={() => openVehicle(v)} className="text-xs text-[#f5a623] hover:underline">แก้ไข</button>
+                <button aria-label={`ลบรถ ${v.plate}`} onClick={() => { setVehicles(prev => prev.filter(x => x.id !== v.id)); if (editingVehicle === v.id) setShowForm(false); }} className="text-xs text-[#ed827a] hover:underline">ลบ</button>
+              </div>,
             ])}
           />
         </div>
@@ -1308,8 +1433,10 @@ function AdminVehicles() {
               <span className="mono">{v.seats} ที่นั่ง</span>,
               <span className="mono text-[#888]">{v.year}</span>,
               <Chip label={v.status} color={v.status === "พร้อมใช้" ? "green" : "amber"} />,
-              <button onClick={() => setVehicles(prev => prev.filter(x => x.id !== v.id))}
-                className="mono text-[10px] text-[#888] hover:text-[#e74c3c] tracking-widest">ลบ</button>,
+              <div className="flex items-center gap-3">
+                <button aria-label={`แก้ไขรถ ${v.plate}`} onClick={() => openVehicle(v)} className="text-xs text-[#f5a623] hover:underline">แก้ไข</button>
+                <button aria-label={`ลบรถ ${v.plate}`} onClick={() => { setVehicles(prev => prev.filter(x => x.id !== v.id)); if (editingVehicle === v.id) setShowForm(false); }} className="text-xs text-[#ed827a] hover:underline">ลบ</button>
+              </div>,
             ])}
           />
         </div>
@@ -1731,7 +1858,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-[#f0ede6] flex">
       <Sidebar role={role} page={page} setPage={setPage} setRole={setRole} user={user} />
-      <main className="flex-1 overflow-y-auto">
+      <main className="min-w-0 flex-1 overflow-y-auto">
         {renderPage()}
       </main>
     </div>
