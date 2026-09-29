@@ -1,3 +1,4 @@
+import BookingCart from "../BookingCart";
 import DriverDashboard from "../DriverDashboard";
 import { useState } from "react";
 import {
@@ -59,11 +60,11 @@ const ROUTES_DATA = [
 ];
 
 const EMPLOYEES = [
-  { id: "E001", name: "สมชาย ใจดี", deptCode: "TRN-01", dept: "ฝ่ายขนส่ง", role: "คนขับรถ", phone: "081-111-2233" },
-  { id: "E002", name: "สมหมาย ใจรัก", deptCode: "TRN-01", dept: "ฝ่ายขนส่ง", role: "คนขับรถ", phone: "082-222-3344" },
-  { id: "E003", name: "สมควร ใจงาม", deptCode: "TRN-01", dept: "ฝ่ายขนส่ง", role: "คนขับรถ", phone: "083-333-4455" },
-  { id: "E004", name: "วิภา รักงาน", deptCode: "SRV-02", dept: "ฝ่ายบริการ", role: "เจ้าหน้าที่", phone: "084-444-5566" },
-  { id: "E005", name: "ประยุทธ์ ดีมาก", deptCode: "SRV-02", dept: "ฝ่ายบริการ", role: "ผู้จัดการ", phone: "085-555-6677" },
+  { id: "E001", name: "สมชาย ใจดี", deptCode: "TRN-01", dept: "ฝ่ายขนส่ง", role: "คนขับรถ", phone: "081-111-2233", email: "somchai@example.com", username: "somchai", hasPassword: true },
+  { id: "E002", name: "สมหมาย ใจรัก", deptCode: "TRN-01", dept: "ฝ่ายขนส่ง", role: "คนขับรถ", phone: "082-222-3344", email: "sommai@example.com", username: "sommai", hasPassword: true },
+  { id: "E003", name: "สมควร ใจงาม", deptCode: "TRN-01", dept: "ฝ่ายขนส่ง", role: "คนขับรถ", phone: "083-333-4455", email: "somkuan@example.com", username: "somkuan", hasPassword: true },
+  { id: "E004", name: "วิภา รักงาน", deptCode: "SRV-02", dept: "ฝ่ายบริการ", role: "เจ้าหน้าที่", phone: "084-444-5566", email: "wipa@example.com", username: "wipa", hasPassword: true },
+  { id: "E005", name: "ประยุทธ์ ดีมาก", deptCode: "SRV-02", dept: "ฝ่ายบริการ", role: "ผู้จัดการ", phone: "085-555-6677", email: "prayut@example.com", username: "prayut", hasPassword: true },
 ];
 
 const USER_DETAILS = { code: "U001", phone: "089-123-4567" };
@@ -185,7 +186,6 @@ function Sidebar({ role, page, setPage, setRole, user }: {
   ];
   const userNav = [
     { label: "จองรถ", page: "booking" as Page, icon: "🎫" },
-    { label: "รายงาน", page: "reports" as Page, icon: "📊" },
   ];
   const driverNav = [
     { label: "ตารางงานของฉัน", page: "driver" as Page, icon: "🚌" },
@@ -365,338 +365,7 @@ function QRBlock() {
 }
 
 function BookingPage() {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [selRoute, setSelRoute] = useState<number | null>(null);
-  const [fromStop, setFromStop] = useState("");
-  const [toStop, setToStop] = useState("");
-  const [selRound, setSelRound] = useState<number | null>(null);
-  const [selectedSeats, setSelectedSeats] = useState<number[]>([]);
-  const [newBookingId, setNewBookingId] = useState<string | null>(null);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [bookings, setBookings] = useState<BookingEntry[]>([...BOOKINGS_MOCK]);
-
-  const route = ROUTES_DATA.find(r => r.id === selRoute);
-  const round = route?.schedule.find(s => s.round === selRound);
-  const occupiedSeats = round
-    ? new Set([
-      ...(INITIAL_OCCUPIED_SEATS[`${route?.id}-${round.round}`] ?? []),
-      ...bookings.filter(b => b.route === route?.id && b.round === round.round && b.status === "confirmed").flatMap(b => b.seatNumbers),
-    ])
-    : new Set<number>();
-  const availableSeats = round ? round.seats - occupiedSeats.size : 0;
-
-  const toggleSeat = (seat: number) => {
-    if (occupiedSeats.has(seat)) return;
-    setSelectedSeats(prev => {
-      if (prev.includes(seat)) return prev.filter(s => s !== seat);
-      return prev.length < 4 ? [...prev, seat].sort((a, b) => a - b) : prev;
-    });
-  };
-
-  const resetForm = () => {
-    setStep(1); setSelRoute(null); setFromStop(""); setToStop("");
-    setSelRound(null); setSelectedSeats([]);
-  };
-
-  const confirmBooking = () => {
-    if (!route || !round) return;
-    const id = `BK-${Date.now().toString().slice(-6)}`;
-    const now = new Date();
-    const newEntry: BookingEntry = {
-      id, user: "นายกิตติ สุขใจ", route: route.id, round: round.round,
-      from: fromStop, to: toStop, seats: selectedSeats.length, seatNumbers: selectedSeats,
-      status: "confirmed", qr: `QR-${id}`,
-      bookedAt: now.toLocaleString("th-TH", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "short" }),
-    };
-    setBookings(prev => [newEntry, ...prev]);
-    setNewBookingId(id);
-    setExpandedId(id);
-    resetForm();
-  };
-
-  const cancelBooking = (id: string) => {
-    setBookings(prev => prev.map(b => b.id === id ? { ...b, status: "cancelled" } : b));
-    if (newBookingId === id) setNewBookingId(null);
-  };
-
-  return (
-    <div className="p-8 grid grid-cols-[1fr_360px] gap-8 items-start">
-      {/* Left: booking form */}
-      <div>
-        <SectionTitle>จองรถ Shuttle Bus</SectionTitle>
-
-        {/* Stepper */}
-        <div className="flex items-center gap-2 mb-8">
-          {[{ n: 1, label: "เลือกเส้นทาง" }, { n: 2, label: "เลือกรอบ" }, { n: 3, label: "ยืนยัน" }].map((s, i) => (
-            <div key={s.n} className="flex items-center gap-2">
-              <div className={`w-7 h-7 flex items-center justify-center mono text-xs font-bold border ${step >= s.n ? "bg-[#f5a623] border-[#f5a623] text-[#0a0a0a]" : "border-[#333] text-[#555]"}`}>
-                {s.n}
-              </div>
-              <span className={`text-xs ${step >= s.n ? "text-[#f0ede6]" : "text-[#555]"}`}>{s.label}</span>
-              {i < 2 && <div className={`flex-1 h-px w-8 ${step > s.n ? "bg-[#f5a623]" : "bg-[#2a2a2a]"}`} />}
-            </div>
-          ))}
-        </div>
-
-      {step === 1 && (
-        <div className="space-y-4">
-          {ROUTES_DATA.map(r => (
-            <button
-              key={r.id}
-              onClick={() => { setSelRoute(r.id); setSelRound(null); setSelectedSeats([]); }}
-              className={`w-full text-left border p-4 transition-colors ${selRoute === r.id ? "border-[#f5a623] bg-[#f5a623]/5" : "border-[#2a2a2a] hover:border-[#444]"}`}
-            >
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <p className="font-bold">{r.name}</p>
-                  <p className="mono text-xs text-[#555]">เวลารวม {r.totalMin} นาที · {r.schedule.length} รอบ/วัน</p>
-                </div>
-                {selRoute === r.id && <div className="w-4 h-4 bg-[#f5a623]" />}
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {r.stops.map((s, i) => (
-                  <span key={i} className={`text-xs px-2 py-0.5 border ${i === 0 || i === r.stops.length - 1 ? "border-[#f5a623]/40 text-[#f5a623]" : "border-[#2a2a2a] text-[#888]"}`}>
-                    {s.name}{s.min ? ` +${s.min}'` : ""}
-                  </span>
-                ))}
-              </div>
-            </button>
-          ))}
-
-          {route && (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mono text-[10px] text-[#888] tracking-widest block mb-1.5">จุดขึ้นรถ</label>
-                  <select value={fromStop} onChange={e => setFromStop(e.target.value)}
-                    className="w-full bg-[#111] border border-[#2a2a2a] text-[#f0ede6] px-3 py-2.5 text-sm outline-none focus:border-[#f5a623]">
-                    <option value="">เลือกจุดขึ้น</option>
-                    {route.stops.map(s => <option key={s.name} value={s.name}>{s.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="mono text-[10px] text-[#888] tracking-widest block mb-1.5">จุดลงรถ</label>
-                  <select value={toStop} onChange={e => setToStop(e.target.value)}
-                    className="w-full bg-[#111] border border-[#2a2a2a] text-[#f0ede6] px-3 py-2.5 text-sm outline-none focus:border-[#f5a623]">
-                    <option value="">เลือกจุดลง</option>
-                    {route.stops.filter(s => s.name !== fromStop).map(s => <option key={s.name} value={s.name}>{s.name}</option>)}
-                  </select>
-                </div>
-              </div>
-              <button
-                disabled={!fromStop || !toStop}
-                onClick={() => setStep(2)}
-                className="w-full bg-[#f5a623] text-[#0a0a0a] font-bold py-2.5 text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#e09520] transition-colors"
-              >
-                ถัดไป →
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {step === 2 && route && (
-        <div className="space-y-4">
-          <p className="text-sm text-[#888] mb-4">เลือกรอบเดินรถ — {route.name}</p>
-          {route.schedule.map(s => {
-            const reserved = new Set([
-              ...(INITIAL_OCCUPIED_SEATS[`${route.id}-${s.round}`] ?? []),
-              ...bookings.filter(b => b.route === route.id && b.round === s.round && b.status === "confirmed").flatMap(b => b.seatNumbers),
-            ]);
-            const remaining = s.seats - reserved.size;
-            return (
-              <button
-                key={s.round}
-                onClick={() => { setSelRound(s.round); setSelectedSeats([]); }}
-                className={`w-full text-left border p-4 transition-colors ${selRound === s.round ? "border-[#f5a623] bg-[#f5a623]/5" : "border-[#2a2a2a] hover:border-[#444]"}`}
-              >
-                <div className="flex justify-between items-center">
-                  <div>
-                    <p className="mono text-[#f5a623] font-medium text-lg">{s.time} น.</p>
-                    <p className="text-sm text-[#888]">{s.driver} · {s.vehicle} ({s.type} {s.seats} ที่นั่ง)</p>
-                  </div>
-                  <div className="text-right space-y-1">
-                    <Chip label={`${remaining} ว่าง`} color={remaining ? "green" : "red"} />
-                    <p className="mono text-[10px] text-[#555]">เต็ม {s.seats} ที่</p>
-                  </div>
-                </div>
-              </button>
-            );
-          })}
-
-          {round && (
-            <div className="border border-[#2a2a2a] bg-[#0d0d0d] p-4">
-              <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
-                <div>
-                  <p className="font-semibold">เลือกที่นั่งของคุณ</p>
-                  <p className="text-xs text-[#888] mt-0.5">{round.type} {round.seats} ที่นั่ง · ว่าง {availableSeats} ที่ · เลือกได้สูงสุด 4 ที่</p>
-                </div>
-                <div className="flex gap-3 mono text-[10px] text-[#888]">
-                  <span><i className="inline-block w-2.5 h-2.5 border border-[#555] mr-1" />ว่าง</span>
-                  <span><i className="inline-block w-2.5 h-2.5 bg-[#f5a623] mr-1" />ที่เลือก</span>
-                  <span><i className="inline-block w-2.5 h-2.5 bg-[#353535] mr-1" />จองแล้ว</span>
-                </div>
-              </div>
-              <div className="max-w-xs mx-auto border border-[#333] bg-[#111] p-4">
-                <div className="flex justify-end mb-3">
-                  <span className="mono text-[9px] border border-[#555] text-[#888] px-2 py-1">ด้านหน้ารถ →</span>
-                </div>
-                <div className={`grid ${round.seats === 9 ? "grid-cols-4" : "grid-cols-5"} gap-2`}>
-                  {Array.from({ length: round.seats === 9 ? 12 : 25 }, (_, index) => {
-                    const columns = round.seats === 9 ? 4 : 5;
-                    const position = index + 1;
-                    const isAisle = round.seats === 9 ? position % columns === 3 : position % columns === 3;
-                    const seat = round.seats === 9
-                      ? Math.floor(index / columns) * 3 + (position % columns === 1 ? 1 : position % columns === 2 ? 2 : 3)
-                      : Math.floor(index / columns) * 4 + (position % columns === 1 ? 1 : position % columns === 2 ? 2 : position % columns === 4 ? 3 : 4);
-                    if (isAisle) return <div key={`aisle-${position}`} aria-hidden="true" />;
-                    const booked = occupiedSeats.has(seat);
-                    const selected = selectedSeats.includes(seat);
-                    return (
-                      <button
-                        key={seat}
-                        type="button"
-                        disabled={booked}
-                        onClick={() => toggleSeat(seat)}
-                        aria-label={`ที่นั่ง ${seat}${booked ? " จองแล้ว" : selected ? " ที่นั่งที่เลือก" : " ว่าง"}`}
-                        className={`h-10 border mono text-xs font-bold transition-colors ${booked ? "bg-[#353535] border-[#444] text-[#666] cursor-not-allowed line-through" : selected ? "bg-[#f5a623] border-[#f5a623] text-[#0a0a0a]" : "border-[#555] text-[#d0ccc5] hover:border-[#f5a623] hover:text-[#f5a623]"}`}
-                      >
-                        {seat}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <p className="mt-4 text-sm text-[#888]">ที่นั่งที่เลือก: <span className="mono text-[#f5a623] font-bold">{selectedSeats.length ? selectedSeats.join(", ") : "ยังไม่ได้เลือก"}</span></p>
-            </div>
-          )}
-
-          <div className="flex gap-3">
-            <button onClick={() => setStep(1)} className="border border-[#2a2a2a] px-6 py-2.5 text-sm hover:border-[#555] transition-colors">← กลับ</button>
-            <button
-              disabled={!selRound || selectedSeats.length === 0}
-              onClick={() => setStep(3)}
-              className="flex-1 bg-[#f5a623] text-[#0a0a0a] font-bold py-2.5 text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#e09520] transition-colors"
-            >
-              ถัดไป →
-            </button>
-          </div>
-        </div>
-      )}
-
-      {step === 3 && route && round && (
-        <div>
-          <div className="border border-[#2a2a2a] p-5 mb-6">
-            <p className="mono text-[10px] text-[#555] tracking-widest mb-4">สรุปการจอง</p>
-            <div className="grid grid-cols-2 gap-y-3 text-sm">
-              <div><p className="text-[#555]">เส้นทาง</p><p className="font-semibold">{route.name}</p></div>
-              <div><p className="text-[#555]">รอบเดินรถ</p><p className="font-semibold mono text-[#f5a623]">{round.time} น.</p></div>
-              <div><p className="text-[#555]">จุดขึ้น</p><p className="font-semibold">{fromStop}</p></div>
-              <div><p className="text-[#555]">จุดลง</p><p className="font-semibold">{toStop}</p></div>
-              <div><p className="text-[#555]">คนขับ</p><p className="font-semibold">{round.driver}</p></div>
-              <div><p className="text-[#555]">ที่นั่งที่เลือก</p><p className="font-semibold">{selectedSeats.join(", ")} <span className="text-[#888]">({selectedSeats.length} ที่นั่ง)</span></p></div>
-            </div>
-          </div>
-          <p className="text-xs text-[#888] mb-4">⚠️ ต้องจองก่อนเวลารถถึงจุดขึ้นอย่างน้อย 20 นาที และสามารถยกเลิกได้ก่อนรถถึง</p>
-          <div className="flex gap-3">
-            <button onClick={() => setStep(2)} className="border border-[#2a2a2a] px-6 py-2.5 text-sm hover:border-[#555] transition-colors">← กลับ</button>
-            <button
-              onClick={confirmBooking}
-              className="flex-1 bg-[#f5a623] text-[#0a0a0a] font-bold py-2.5 text-sm hover:bg-[#e09520] transition-colors"
-            >
-              ยืนยันการจอง
-            </button>
-          </div>
-        </div>
-      )}
-      </div>
-
-      {/* Right: booking history — always visible */}
-      <div className="border-l border-[#2a2a2a] pl-8">
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-3">
-            <div className="w-1 h-5 bg-[#f5a623]" />
-            <h2 className="font-bold text-base tracking-wide">ประวัติการจอง</h2>
-          </div>
-          <span className="mono text-[10px] text-[#555] tracking-widest">{bookings.length} รายการ</span>
-        </div>
-
-        {bookings.length === 0 && (
-          <p className="text-sm text-[#555] text-center py-8">ยังไม่มีประวัติการจอง</p>
-        )}
-
-        <div className="space-y-3 max-h-[calc(100vh-160px)] overflow-y-auto pr-1">
-          {bookings.map(b => {
-            const r = ROUTES_DATA.find(x => x.id === b.route);
-            const s = r?.schedule.find(x => x.round === b.round);
-            const isNew = b.id === newBookingId;
-            const isExpanded = expandedId === b.id;
-
-            return (
-              <div
-                key={b.id}
-                className={`border transition-colors ${isNew ? "border-[#2ecc71]/60 bg-[#2ecc71]/5" : "border-[#2a2a2a]"}`}
-              >
-                {/* Header row — always visible */}
-                <button
-                  className="w-full text-left px-4 py-3 flex items-start justify-between gap-2"
-                  onClick={() => setExpandedId(isExpanded ? null : b.id)}
-                >
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <span className="mono text-[#f5a623] text-xs font-medium">{b.id}</span>
-                      {isNew && <span className="mono text-[9px] bg-[#2ecc71] text-[#0a0a0a] px-1.5 py-0.5 font-bold tracking-wider">ใหม่</span>}
-                      <Chip
-                        label={b.status === "confirmed" ? "ยืนยันแล้ว" : "ยกเลิก"}
-                        color={b.status === "confirmed" ? "green" : "red"}
-                      />
-                    </div>
-                    <p className="text-sm font-semibold truncate">{r?.name}</p>
-                    <p className="text-xs text-[#888]">{b.from} → {b.to}</p>
-                    <p className="mono text-[10px] text-[#555] mt-0.5">{b.bookedAt || "ข้อมูลก่อนหน้า"}</p>
-                  </div>
-                  <span className="text-[#555] text-xs mt-1 shrink-0">{isExpanded ? "▲" : "▼"}</span>
-                </button>
-
-                {/* Expanded detail */}
-                {isExpanded && (
-                  <div className="border-t border-[#1a1a1a] px-4 pb-4 pt-3">
-                    {/* QR if confirmed */}
-                    {b.status === "confirmed" && (
-                      <div className="flex items-center gap-4 mb-4 p-3 bg-[#0d0d0d] border border-[#2a2a2a]">
-                        <QRBlock />
-                        <div>
-                          <p className="mono text-[10px] text-[#555] tracking-widest mb-1">QR CODE — CHECK-IN</p>
-                          <p className="mono text-[#f5a623] font-bold">{b.id}</p>
-                          <p className="text-xs text-[#888] mt-1">แสดง QR นี้แก่คนขับเพื่อขึ้นรถ</p>
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs mb-4">
-                      <div><p className="text-[#555]">รอบ</p><p className="font-semibold mono text-[#f5a623]">{s?.time} น.</p></div>
-                      <div><p className="text-[#555]">ที่นั่ง</p><p className="font-semibold">{b.seatNumbers.join(", ")} <span className="text-[#888]">({b.seats} ที่)</span></p></div>
-                      <div><p className="text-[#555]">คนขับ</p><p className="font-semibold">{s?.driver}</p></div>
-                      <div><p className="text-[#555]">รถ</p><p className="font-semibold">{s?.vehicle}</p></div>
-                    </div>
-
-                    {b.status === "confirmed" && (
-                      <button
-                        onClick={() => cancelBooking(b.id)}
-                        className="w-full border border-[#e74c3c]/40 text-[#e74c3c] py-2 text-xs hover:bg-[#e74c3c]/10 transition-colors"
-                      >
-                        ยกเลิกการจอง
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
+  return <BookingCart routes={ROUTES_DATA} initialOccupied={INITIAL_OCCUPIED_SEATS} initialBookings={BOOKINGS_MOCK} userName="นายกิตติ สุขใจ" QrCode={QRBlock} />;
 }
 
 // ─── ADMIN: ROUTES ────────────────────────────────────────────────────────────
@@ -1850,7 +1519,7 @@ export default function App() {
       case "admin-vehicles": return <AdminVehicles />;
       case "admin-permissions": return <AdminPermissions />;
       case "driver": return <DriverView />;
-      case "reports": return <ReportsPage />;
+      case "reports": return role === "admin" ? <ReportsPage /> : null;
       default: return null;
     }
   };

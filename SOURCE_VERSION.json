@@ -1,12 +1,12 @@
 {
-  "tag": "busv3",
-  "title": "Admin ก่อนเพิ่มตะกร้าการจอง",
+  "tag": "busv4",
+  "title": "Figma พร้อมหน้าคนขับและตะกร้าการจอง",
   "savedDate": "2026-09-23",
-  "kind": "partial-source-snapshot",
+  "kind": "source-archive",
   "sources": [
     {
-      "file": "backups/admin-before-cart-App.tsx",
-      "sha256": "687a80552940618e6b08b7267af026cb2948ee9b32f2f6fb7400ff60d7a5cfd4"
+      "file": "backups/shuttle-admin-booking-cart-2026-09-23.zip",
+      "sha256": "b85df5a275a0d3862cd283913c737db2a61718ed954816e4b05afa03d23d8cd5"
     }
   ],
   "historyReconstructedFromSavedFiles": true,

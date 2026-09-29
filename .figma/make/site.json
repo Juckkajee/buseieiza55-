@@ -1,0 +1,10 @@
+{
+  "description": "Manage shuttle bus routes, schedules, and real-time tracking to optimize transportation for commuters and organizations efficiently.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
