@@ -1,12 +1,18 @@
 import { query, read, ts, capabilities } from "./db.js"
 import { guard } from "./auth.js"
-import { integer, epoch } from "./domain.js"
+import { epoch } from "./domain.js"
+import {
+  reportPeriod,
+  reportTimeline,
+  summarizeTickets as summarize,
+} from "./report-period.js"
 export function reportRoutes(app) {
   app.get("/api/reports", guard("reports"), async (req, res) => {
-    const year = integer(req.query.year, "ปี ค.ศ.", 2000, 2200)
+    const range = reportPeriod(req.query)
+    const { fromDate, toDate } = range
     res.json(
       await read(async (db) => {
-        const binds = { fromDate: `${year}-01-01`, toDate: `${year + 1}-01-01` }
+        const binds = { fromDate, toDate }
         const tickets = await query(
           db,
           `SELECT d.booking_id,d.status,d.checked_in_at,${ts("t.departure_at")} departure_at,t.trip_id,t.route_id,t.driver_employee_id,s.stop_id,s.stop_name
@@ -23,21 +29,7 @@ export function reportRoutes(app) {
         FROM BUS_TRIP_ROUNDS t JOIN BUS_ROUTES r ON r.route_id=t.route_id JOIN BUS_VEHICLES v ON v.vehicle_id=t.vehicle_id JOIN BUS_EMPLOYEES e ON e.employee_id=t.driver_employee_id WHERE t.departure_at>=TO_TIMESTAMP(:fromDate,'YYYY-MM-DD') AND t.departure_at<TO_TIMESTAMP(:toDate,'YYYY-MM-DD')`,
           binds,
         )
-        const summarize = (rows) => ({
-          bookings: new Set(rows.map((d) => d.bookingId)).size,
-          seats: rows.length,
-          cancelled: rows.filter((d) => d.status === "CANCELLED").length,
-          checkin: rows.filter((d) => d.checkedInAt).length,
-          noshow: rows.filter((d) => d.status === "NO_SHOW").length,
-        })
-        const monthly = Array.from({ length: 12 }, (_, i) => ({
-          name: new Date(year, i, 1).toLocaleString("th-TH", {
-            month: "short",
-          }),
-          ...summarize(
-            tickets.filter((d) => Number(d.departureAt.slice(5, 7)) === i + 1),
-          ),
-        }))
+        const monthly = reportTimeline(tickets, { ...range, period: "year" })
         const stops = await query(
           db,
           "SELECT stop_id,stop_name FROM BUS_STOPS ORDER BY stop_name",
@@ -96,7 +88,8 @@ export function reportRoutes(app) {
             ...summarize(tickets.filter((t) => t.departureAt.startsWith(day))),
           }))
         return {
-          year,
+          ...range,
+          timeline: reportTimeline(tickets, range),
           summary: summarize(tickets),
           monthly,
           stations,

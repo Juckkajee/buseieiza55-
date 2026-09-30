@@ -1,11 +1,12 @@
 # เวอร์ชัน Shuttle Bus
 
-ประวัตินี้นำเข้าจากไฟล์สำรองที่มีอยู่บนเครื่อง ไม่ใช่ประวัติ Git ดั้งเดิม วันที่ในตารางเป็นวันที่บันทึกไฟล์ ส่วน commit ถูกสร้างในวันที่นำขึ้น GitHub
+ประวัติ busv1–busv14 นำเข้าจากไฟล์สำรองที่มีอยู่บนเครื่อง ไม่ใช่ประวัติ Git ดั้งเดิม วันที่ในตารางเป็นวันที่บันทึกไฟล์ ส่วน commit ถูกสร้างในวันที่นำขึ้น GitHub เวอร์ชันหลังจากนั้นบันทึกจากการพัฒนาต่อใน Git
 
-**เวอร์ชันล่าสุด: [busv14](https://github.com/Juckkajee/buseieiza55-/tree/busv14)** — React client + Node.js server + Oracle พร้อมรหัสเรียงอัตโนมัติ
+**เวอร์ชันล่าสุด: [30/9/2569](https://github.com/Juckkajee/buseieiza55-/tree/30%2F9%2F2569)** — รายงาน Admin ทั้ง 5 ประเภท เลือกดูรายวัน รายเดือน และรายปี
 
 | เวอร์ชัน | วันที่ไฟล์ | เนื้อหา | ลักษณะไฟล์ |
 |---|---|---|---|
+| [30/9/2569](https://github.com/Juckkajee/buseieiza55-/tree/30%2F9%2F2569) | 2026-09-30 | รายงานรายวัน / รายเดือน / รายปี | เว็บ Client/Server ครบชุด พัฒนาต่อจาก busv14 |
 | [busv1](https://github.com/Juckkajee/buseieiza55-/tree/busv1) | 2026-09-21 | Figma Version 12 — App.tsx | สำเนาบางไฟล์ — ไม่ใช่โปรเจกต์ครบชุด |
 | [busv2](https://github.com/Juckkajee/buseieiza55-/tree/busv2) | 2026-09-22 | Figma Version 13 — App.tsx | สำเนาบางไฟล์ — ไม่ใช่โปรเจกต์ครบชุด |
 | [busv3](https://github.com/Juckkajee/buseieiza55-/tree/busv3) | 2026-09-23 | Admin ก่อนเพิ่มตะกร้าการจอง | สำเนาบางไฟล์ — ไม่ใช่โปรเจกต์ครบชุด |
@@ -28,7 +29,7 @@
 ```powershell
 git clone https://github.com/Juckkajee/buseieiza55-.git
 cd buseieiza55-
-git switch --detach busv14
+git switch --detach 30/9/2569
 ```
 
 แท็กเป็นจุดบันทึกโค้ด หากต้องการแก้เวอร์ชันเก่าให้สร้าง branch ใหม่จากแท็ก เช่น `git switch -c my-bus-changes busv14`

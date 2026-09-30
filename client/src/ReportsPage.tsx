@@ -27,6 +27,10 @@ type Row = {
 }
 type Report = {
   year: number
+  period: "day" | "month" | "year"
+  fromDate: string
+  toDate: string
+  timeline: Row[]
   summary: Omit<Row, "name">
   monthly: Row[]
   stations: Row[]
@@ -34,8 +38,21 @@ type Report = {
   drivers: Row[]
   daily: Row[]
 }
+const months = Array.from({ length: 12 }, (_, i) =>
+  new Date(2026, i, 1).toLocaleString("th-TH", { month: "long" }),
+)
+const thaiDate = (value: string) =>
+  new Date(value + "T00:00:00+07:00").toLocaleDateString("th-TH", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "Asia/Bangkok",
+  })
 export default function ReportsPage() {
   const [year, setYear] = useState(Number(today().slice(0, 4))),
+    [period, setPeriod] = useState<Report["period"]>("year"),
+    [month, setMonth] = useState(Number(today().slice(5, 7))),
+    [day, setDay] = useState(today()),
     [tab, setTab] = useState("monthly"),
     [report, setReport] = useState<Report | null>(null),
     [error, setError] = useState(""),
@@ -43,7 +60,20 @@ export default function ReportsPage() {
   useEffect(() => {
     let active = true
     setLoading(true)
-    void api<Report>("/reports?year=" + year)
+    setError("")
+    setReport(null)
+    const params = new URLSearchParams({
+      period,
+      year: String(year),
+      month: String(month),
+      date: day,
+    })
+    if (period === "day" && !day) {
+      setError("กรุณาเลือกวันที่ต้องการดูรายงาน")
+      setLoading(false)
+      return
+    }
+    void api<Report>("/reports?" + params)
       .then((r) => {
         if (active) {
           setReport(r)
@@ -59,38 +89,94 @@ export default function ReportsPage() {
     return () => {
       active = false
     }
-  }, [year])
+  }, [year, period, month, day])
   const tabs = [
-    ["monthly", "สถิติรายเดือน"],
+    ["monthly", "สถิติการจอง"],
     ["stations", "สถิติรายจุดจอด"],
     ["routes", "สรุปการเดินรถ"],
     ["drivers", "การทำงานคนขับ"],
     ["daily", "No Show / ยกเลิก"],
   ]
   const rows =
-    report?.[
-      (tab as "monthly" | "stations" | "routes" | "drivers" | "daily")
-    ] || []
+    (tab === "monthly" || tab === "daily"
+      ? report?.timeline
+      : report?.[(tab as "stations" | "routes" | "drivers")]) || []
+  const periodTitle = !report
+    ? ""
+    : report.period === "day"
+      ? `วันที่ ${thaiDate(report.fromDate)}`
+      : report.period === "month"
+        ? `เดือน${months[Number(report.fromDate.slice(5, 7)) - 1]} ปี ${report.year + 543}`
+        : `ปี ${report.year + 543}`
+  const timeColumn =
+    period === "day"
+      ? "เวลาเดินทาง"
+      : period === "month"
+        ? "วันเดินทาง"
+        : "เดือนเดินทาง"
   return (
     <div className="p-5 xl:p-8">
       <Title
         action={
-          <Label title="ปี พ.ศ.">
-            <select
-              className={field}
-              value={year}
-              onChange={(e) => setYear(Number(e.target.value))}
-            >
-              {Array.from(
-                { length: 8 },
-                (_, i) => Number(today().slice(0, 4)) - 5 + i,
-              ).map((y) => (
-                <option key={y} value={y}>
-                  {y + 543}
-                </option>
-              ))}
-            </select>
-          </Label>
+          <div className="flex items-end gap-3 flex-wrap">
+            <Label title="ช่วงเวลารายงาน">
+              <select
+                className={field}
+                value={period}
+                onChange={(e) => setPeriod(e.target.value as Report["period"])}
+              >
+                <option value="day">รายวัน</option>
+                <option value="month">รายเดือน</option>
+                <option value="year">รายปี</option>
+              </select>
+            </Label>
+            {period === "day" ? (
+              <Label title="วันที่เดินทาง">
+                <input
+                  type="date"
+                  className={field}
+                  value={day}
+                  min="2000-01-01"
+                  max="2200-12-31"
+                  onChange={(e) => setDay(e.target.value)}
+                />
+              </Label>
+            ) : (
+              <>
+                {period === "month" && (
+                  <Label title="เดือน">
+                    <select
+                      className={field}
+                      value={month}
+                      onChange={(e) => setMonth(Number(e.target.value))}
+                    >
+                      {months.map((name, i) => (
+                        <option key={name} value={i + 1}>
+                          {name}
+                        </option>
+                      ))}
+                    </select>
+                  </Label>
+                )}
+                <Label title="ปี พ.ศ.">
+                  <select
+                    className={field}
+                    value={year}
+                    onChange={(e) => setYear(Number(e.target.value))}
+                  >
+                    {Array.from(
+                      { length: 8 },
+                      (_, i) => Number(today().slice(0, 4)) - 5 + i,
+                    ).map((y) => (
+                      <option key={y} value={y}>
+                        {y + 543}
+                      </option>
+                    ))}
+                  </select>
+                </Label>
+              </>
+            )}
+          </div>
         }
       >
         รายงาน
@@ -114,6 +200,9 @@ export default function ReportsPage() {
       ) : (
         report && (
           <>
+            <p className="text-sm text-[#aaa] mb-4" aria-live="polite">
+              {periodTitle} · ใช้ช่วงเวลาเดียวกันกับยอดสรุป กราฟ และตารางของทุกรายงาน
+            </p>
             <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
               {[
                 ["จำนวนการจอง", report.summary.bookings],
@@ -131,8 +220,13 @@ export default function ReportsPage() {
             </div>
             <Panel className="mb-6">
               <h2 className="font-bold mb-5 text-center">
-                {tabs.find(([value]) => value === tab)?.[1]} ปี {year + 543}
+                {tabs.find(([value]) => value === tab)?.[1]} · {periodTitle}
               </h2>
+              {report.summary.seats === 0 && (
+                <p className="text-center text-sm text-[#aaa] mb-3">
+                  ไม่มีการจองในช่วงเวลานี้
+                </p>
+              )}
               <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
@@ -207,7 +301,7 @@ export default function ReportsPage() {
             ) : (
               <Table
                 headers={[
-                  "รายการ",
+                  tab === "stations" ? "จุดจอด" : timeColumn,
                   "การจอง",
                   "ตั๋วทั้งหมด",
                   "ยกเลิก",
@@ -225,8 +319,9 @@ export default function ReportsPage() {
               />
             )}
             <p className="text-xs text-[#888] mt-4">
-              ข้อมูลตามวันเดินทางในปีที่เลือก · จำนวนการจองนับใบจองไม่ซ้ำในแต่ละกลุ่ม ·
-              ตั๋วหนึ่งใบเท่ากับหนึ่งที่นั่ง · No Show จะสรุปเมื่อคนขับจบงาน
+              ข้อมูลตามวันเดินทางในช่วงที่เลือก (เวลาไทย) ·
+              จำนวนการจองนับใบจองไม่ซ้ำในแต่ละกลุ่ม · ตั๋วหนึ่งใบเท่ากับหนึ่งที่นั่ง · No Show
+              จะสรุปเมื่อคนขับจบงาน
             </p>
           </>
         )

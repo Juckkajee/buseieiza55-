@@ -1,19 +1,17 @@
 {
-  "tag": "busv14",
-  "title": "เปิดรหัสเรียงอัตโนมัติครบ 9 ประเภท",
-  "savedDate": "2026-09-29",
-  "kind": "source-archive",
+  "tag": "30/9/2569",
+  "title": "รายงานรายวัน / รายเดือน / รายปี",
+  "savedDate": "2026-09-30",
+  "kind": "git-development",
+  "basedOnTag": "busv14",
   "sources": [
     {
-      "file": "deliverables/MUT-Shuttle-Web-2026-09-29-running-ids.zip",
-      "sha256": "f683f53ee9885727cfc2671f5178b9c8df37ded0d7a28d5a5aa11d8cc26adc48"
+      "file": "deliverables/MUT-Shuttle-Web-2026-09-30-report-periods.zip",
+      "sha256": "d52335cb33ea3599b36f812dfc897a2538bc15e5c4573610105be27261bfa757"
     }
   ],
-  "historyReconstructedFromSavedFiles": true,
   "publicationChanges": [
-    "Added version index and provenance metadata",
-    "Added exclusions for local backups to .gitignore",
-    "Regenerated file manifest",
-    "Latest README links to version index"
+    "Updated README, version index and provenance",
+    "Regenerated manifest from staged Git file contents"
   ]
 }
