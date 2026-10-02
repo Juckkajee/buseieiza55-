@@ -9,6 +9,9 @@ import {
   stopOrder,
   bangkokNow,
   epoch,
+  assertBookingWindow,
+  assertSeatAllowance,
+  assertBookingUser,
 } from "./domain.js"
 
 export async function bookings(db, userId) {
@@ -37,6 +40,8 @@ export async function bookings(db, userId) {
   }))
 }
 export async function createBookings(db, userId, items, now = Date.now()) {
+  const [user] = await query(db, "SELECT user_type FROM BUS_USERS WHERE user_id=:userId", {userId})
+  assertBookingUser(user?.userType)
   requireThat(
     Array.isArray(items) && items.length > 0 && items.length <= 20,
     "เลือกยืนยัน 1–20 รายการต่อครั้ง",
@@ -53,12 +58,7 @@ export async function createBookings(db, userId, items, now = Date.now()) {
       { tripId },
     )
     requireThat(trip, "ไม่พบรอบรถ", 404)
-    requireThat(trip.status === "SCHEDULED", "รอบรถนี้ไม่เปิดรับจองแล้ว", 409)
-    requireThat(
-      epoch(trip.departureAt) - now >= 20 * 60000,
-      "ต้องจองล่วงหน้าอย่างน้อย 20 นาทีก่อนรถออก",
-      409,
-    )
+    requireThat(["SCHEDULED", "IN_PROGRESS"].includes(trip.status), "รอบรถนี้ไม่เปิดรับจองแล้ว", 409)
     const [vehicle] = await query(
       db,
       `SELECT seat_count${
@@ -82,6 +82,13 @@ export async function createBookings(db, userId, items, now = Date.now()) {
     const pickupId = text(item.pickupId, "จุดขึ้น", 40),
       dropoffId = text(item.dropoffId, "จุดลง", 40),
       minutes = stopOrder(trip.stops, pickupId, dropoffId)
+    assertBookingWindow(trip.departureAt, minutes, now)
+    if (capabilities.tripEvents) {
+      const passed = await query(db, "SELECT event_id FROM BUS_TRIP_EVENTS WHERE trip_id=:tripId AND route_stop_id=:pickupId AND event_type='STOP'", {tripId:trip.tripId, pickupId})
+      requireThat(!passed.length, "รถผ่านจุดขึ้นนี้แล้ว", 409)
+    }
+    const [existing] = await query(db, "SELECT COUNT(*) n FROM BUS_BOOKING_DETAILS d JOIN BUS_BOOKINGS b ON b.booking_id=d.booking_id WHERE d.trip_id=:tripId AND b.user_id=:userId AND d.status NOT IN ('CANCELLED','NO_SHOW')", {tripId:trip.tripId,userId})
+    assertSeatAllowance(existing.n, seatNumbers.length)
     const occupied = (
       await query(
         db,
@@ -189,7 +196,7 @@ export function driverRoutes(app) {
           await assigned(db, req.params.id, req.user.id, false)
           return query(
             db,
-            `SELECT b.booking_id,u.full_name,d.ticket_no,d.seat_number,d.status,${ts("d.checked_in_at")} checked_in_at,p.stop_name pickup_name,q.stop_name dropoff_name
+            `SELECT b.booking_id,u.full_name,d.ticket_no,d.seat_number,d.status,d.pickup_route_stop_id,d.dropoff_route_stop_id,${ts("d.checked_in_at")} checked_in_at,p.stop_name pickup_name,q.stop_name dropoff_name
       FROM BUS_BOOKING_DETAILS d JOIN BUS_BOOKINGS b ON b.booking_id=d.booking_id JOIN BUS_USERS u ON u.user_id=b.user_id JOIN BUS_ROUTE_STOPS rp ON rp.route_stop_id=d.pickup_route_stop_id JOIN BUS_STOPS p ON p.stop_id=rp.stop_id JOIN BUS_ROUTE_STOPS rq ON rq.route_stop_id=d.dropoff_route_stop_id JOIN BUS_STOPS q ON q.stop_id=rq.stop_id WHERE d.trip_id=:tripId AND d.status<>'CANCELLED' ORDER BY d.seat_number`,
             { tripId: req.params.id },
           )
@@ -291,6 +298,7 @@ export function driverRoutes(app) {
         { qrToken },
       )
       requireThat(ticket, "ไม่พบตั๋วนี้", 404)
+      requireThat(ticket.tripId === text(req.body.tripId, "รอบรถที่กำลังตรวจตั๋ว", 40), "ตั๋วนี้เป็นของรอบรถอื่น", 409)
       const trip = await assigned(db, ticket.tripId, req.user.id)
       requireThat(trip.status === "IN_PROGRESS", "กรุณาเริ่มงานรอบรถของตั๋วนี้ก่อน")
       const result = await db.execute(

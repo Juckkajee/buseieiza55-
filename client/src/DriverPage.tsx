@@ -3,6 +3,7 @@ import { useApp } from "./App"
 import { api, today, displayDate, displayTime } from "./api"
 import { useConfirm } from "./Confirmation"
 import type { Trip } from "./types"
+import QRScanner from "./QRScanner"
 import {
   Title,
   Panel,
@@ -24,6 +25,8 @@ type Passenger = {
   seatNumber: string
   status: string
   checkedInAt: string | null
+  pickupRouteStopId: string
+  dropoffRouteStopId: string
   pickupName: string
   dropoffName: string
 }
@@ -41,7 +44,7 @@ export default function DriverPage() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      setTrips(await api<Trip[]>("/trips?date=" + day))
+      setTrips(await api<Trip[]>("/trips?mine=1&date=" + day))
     } finally {
       setLoading(false)
     }
@@ -50,7 +53,7 @@ export default function DriverPage() {
     void load().catch((e) => action.setError(e.message))
   }, [load])
   const visible = trips.filter((t) => filter === "ALL" || t.status === filter),
-    trip = trips.find((t) => t.tripId === active) || visible[0],
+    trip = visible.find((t) => t.tripId === active) || visible.find(t => t.status === "IN_PROGRESS") || visible[0],
     route = data.routes.find((r) => r.routeId === trip?.routeId),
     stops = route?.stops || [],
     visits = trip?.events.filter((e) => e.eventType === "STOP") || []
@@ -349,7 +352,21 @@ export default function DriverPage() {
                 )}
               </Panel>
               <Panel>
-                <h2 className="font-bold mb-4">เช็กอินผู้โดยสาร</h2>
+                <h2 className="font-bold mb-4">ผู้โดยสารแยกตามจุดจอด</h2>
+                <Table headers={["ลำดับ / จุดจอด", "ขึ้น (คน)", "ลง (คน)", "ผู้ขึ้น", "ผู้ลง"]} rows={stops.map(s => {
+                  const up = passengers.filter(p => p.pickupRouteStopId === s.routeStopId)
+                  const down = passengers.filter(p => p.dropoffRouteStopId === s.routeStopId)
+                  const names = (items: Passenger[]) => items.map(p => `${p.fullName} (ที่ ${p.seatNumber})`).join(", ") || "—"
+                  return [`${s.stopSequence}. ${s.stopName}`, up.length, down.length, names(up), names(down)]
+                })} />
+                <p className="text-xs text-[#999] mt-2">ยอดตามตั๋วที่ไม่ยกเลิก แยกจุดขาไปและขากลับตามลำดับจุดจอด</p>
+                {trip.status === "COMPLETED" && <div className="border border-[#555] p-4 my-4">
+                  <h3 className="font-bold">สรุปเมื่อปิดงาน</h3>
+                  <p>ขึ้นรถจริง {passengers.filter(p => !!p.checkedInAt).length} คน · No Show {passengers.filter(p => p.status === "NO_SHOW").length} คน</p>
+                  <p className="text-sm text-[#aaa]">ผู้ไม่มา: {passengers.filter(p => p.status === "NO_SHOW").map(p => `${p.fullName} (ที่ ${p.seatNumber})`).join(", ") || "ไม่มี"}</p>
+                </div>}
+                <h2 className="font-bold my-4">เช็กอินผู้โดยสาร</h2>
+                <QRScanner key={trip.tripId} disabled={!editable || action.busy || trip.status !== "IN_PROGRESS"} onScan={setQr} />
                 <form
                   className="flex gap-2 mb-5"
                   onSubmit={(e) => {
@@ -357,6 +374,7 @@ export default function DriverPage() {
                     void action.run(async () => {
                       await api("/driver/check-in", "POST", {
                         qrToken: qr.trim(),
+                        tripId: trip.tripId,
                       })
                       setQr("")
                       await loadPassengers()

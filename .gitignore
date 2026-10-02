@@ -12,3 +12,5 @@ tmp/
 /backups/
 /deliverables/
 /driver-update/
+/PRIVATE-*
+/runtime/

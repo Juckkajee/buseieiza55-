@@ -68,6 +68,8 @@ export async function transaction(fn) {
   })
 }
 export async function close() {
-  if (pool) await pool.close(5)
+  const current = pool
+  pool = undefined
+  if (current) await current.close(5)
 }
 export const ts = (column) => `TO_CHAR(${column},'YYYY-MM-DD"T"HH24:MI:SS')`

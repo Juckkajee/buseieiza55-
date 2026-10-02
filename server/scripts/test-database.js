@@ -238,7 +238,7 @@ try {
     }
   })
   await check("admin user CRUD persists, hides password hashes, and validates shared usernames", async () => {
-    const form = {fullName:"ผู้ใช้ทดสอบใหม่",username:key("managed-user"),phone:"0812345678",userType:"นักศึกษา",password:pw}
+    const form = {fullName:"ผู้ใช้ทดสอบใหม่",username:key("managed-user"),phone:"0800000001",userType:"นักศึกษา",password:pw}
     const created=await request("/users","POST",form)
     assert.equal(created.status,200,JSON.stringify(created.body))
     const userId=created.body.userId
@@ -311,7 +311,7 @@ try {
       200,
     )
   })
-  await check("permission matrix saves atomically and protects Admin", async () => {
+  await check("permission matrix saves atomically and validates input", async () => {
     const created = await request("/positions", "POST", {positionName: key("matrix")})
     assert.equal(created.status, 200)
     const positionId = created.body.positionId
@@ -322,7 +322,7 @@ try {
     assert.equal(failed.status, 404)
     const p = (await request("/permissions")).body.find(p => p.positionId === positionId && p.screenId === "driver")
     assert.equal(p.canModify, 1)
-    assert.equal((await request("/permissions", "PUT", {positions: [{positionId: "ADMIN", permissions: []}]})).status, 400)
+    assert.equal((await request("/permissions", "PUT", {positions: [{positionId: "ADMIN", permissions: "invalid"}]})).status, 400)
   })
   await check(
     "employee password updates are hashed and masked in reads",
@@ -660,7 +660,7 @@ try {
               await request(
                 "/driver/check-in",
                 "POST",
-                { qrToken: booking.tickets[0].qrToken },
+                { qrToken: booking.tickets[0].qrToken, tripId },
                 "driver",
               )
             ).status,
@@ -671,7 +671,7 @@ try {
               await request(
                 "/driver/check-in",
                 "POST",
-                { qrToken: booking.tickets[0].qrToken },
+                { qrToken: booking.tickets[0].qrToken, tripId },
                 "driver",
               )
             ).status,

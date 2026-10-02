@@ -43,7 +43,7 @@ export default function BookingPage({
 }: {
   view: "booking" | "cancellations"
 }) {
-  const { data } = useApp(),
+  const { data, user } = useApp(),
     ask = useConfirm(),
     action = useAction()
   const [day, setDay] = useState(today),
@@ -127,9 +127,13 @@ export default function BookingPage({
   const pending = new Set(
     cart.filter((c) => c.trip.tripId === tripId).flatMap((c) => c.seats),
   )
+  const alreadyBooked = bookings.filter(b => b.tripId === tripId).reduce((n,b) => n+b.tickets.filter(t => !["CANCELLED","NO_SHOW"].includes(t.status)).length,0)
+  const pickupMinutes = (route?.stops || []).filter(s => s.stopSequence <= (pickup?.stopSequence || 0)).reduce((n,s) => n + s.minutesFromPrev,0)
+  const pickupTime = (t: Trip) => new Date(new Date(t.departureAt + "+07:00").getTime() + pickupMinutes * 60000)
   const canBook = (t: Trip) =>
-    t.status === "SCHEDULED" &&
-    new Date(t.departureAt + "+07:00").getTime() - clock >= 20 * 60000
+    ["นักศึกษา", "เจ้าหน้าที่"].includes(user.userType || "") &&
+    ["SCHEDULED", "IN_PROGRESS"].includes(t.status) &&
+    pickupTime(t).getTime() - clock >= 20 * 60000
   async function confirm(ids: string[]) {
     const items = cart.filter((c) => ids.includes(c.id))
     if (!items.length) return
@@ -397,6 +401,7 @@ export default function BookingPage({
             )}
           </Panel>
           <Panel>
+            <Notice error={["นักศึกษา", "เจ้าหน้าที่"].includes(user.userType || "") ? "" : "บัญชีนี้ดูประวัติได้ แต่การจองใหม่สำหรับนักศึกษาและเจ้าหน้าที่เท่านั้น"} />
             <h2 className="font-bold mb-4">
               <span className="text-[#f5a623] mr-2">02</span>เลือกรอบเดินรถและที่นั่ง
             </h2>
@@ -409,12 +414,12 @@ export default function BookingPage({
             ) : (
               <>
                 <p className="text-xs text-[#999] mb-4">
-                  จองล่วงหน้าอย่างน้อย 20 นาที · ครั้งละไม่เกิน 4 ที่นั่ง
+                  จองก่อนรถถึงจุดขึ้นอย่างน้อย 20 นาที · รวมไม่เกิน 4 ที่นั่งต่อคนต่อรอบ
                 </p>
                 <div className="grid sm:grid-cols-2 gap-3">
                   {trips
                     .filter(
-                      (t) => t.routeId === routeId && t.status !== "CANCELLED",
+                      (t) => t.routeId === routeId && canBook(t),
                     )
                     .map((t) => (
                       <button
@@ -432,7 +437,7 @@ export default function BookingPage({
                         }}
                       >
                         <b className="mono text-[#f5a623]">
-                          {t.departureAt.slice(11, 16)} น.
+                          {pickupTime(t).toLocaleTimeString("th-TH", {hour:"2-digit", minute:"2-digit", timeZone:"Asia/Bangkok"})} น. ที่จุดขึ้น
                         </b>
                         <span className="block text-sm mt-2">
                           {t.licensePlate} · {t.vehicleType}
@@ -447,8 +452,8 @@ export default function BookingPage({
                     ))}
                 </div>
                 {!trips.some(
-                  (t) => t.routeId === routeId && t.status !== "CANCELLED",
-                ) && <Empty>ไม่มีรอบเดินรถในวันที่เลือก</Empty>}
+                  (t) => t.routeId === routeId && canBook(t),
+                ) && <Empty>ไม่มีรอบที่ยังเปิดรับจองสำหรับจุดขึ้นและวันที่เลือก</Empty>}
                 {trip && (
                   <div className="mt-6">
                     <div className="flex gap-4 justify-center text-[10px] text-[#999] mb-4">
@@ -489,10 +494,10 @@ export default function BookingPage({
                               onClick={() => {
                                 if (chosen)
                                   setSeats(seats.filter((v) => v !== s))
-                                else if (seats.length < 4)
+                                else if (seats.length + pending.size + alreadyBooked < 4)
                                   setSeats([...seats, s])
                                 else
-                                  action.setError("เลือกได้ไม่เกิน 4 ที่นั่งต่อรายการ")
+                                  action.setError("รวมรายการรอยืนยันและที่จองแล้วได้ไม่เกิน 4 ที่นั่งต่อคนต่อรอบ")
                               }}
                             >
                               {s}

@@ -2,10 +2,11 @@
 
 ประวัติ busv1–busv14 นำเข้าจากไฟล์สำรองที่มีอยู่บนเครื่อง ไม่ใช่ประวัติ Git ดั้งเดิม วันที่ในตารางเป็นวันที่บันทึกไฟล์ ส่วน commit ถูกสร้างในวันที่นำขึ้น GitHub เวอร์ชันหลังจากนั้นบันทึกจากการพัฒนาต่อใน Git
 
-**เวอร์ชันล่าสุด: [30/9/2569](https://github.com/Juckkajee/buseieiza55-/tree/30%2F9%2F2569)** — รายงาน Admin ทั้ง 5 ประเภท เลือกดูรายวัน รายเดือน และรายปี
+**เวอร์ชันล่าสุด: [final1](https://github.com/Juckkajee/buseieiza55-/tree/final1)** — ครบข้อกำหนดหน้า 1–9 รายงาน 7 ข้อ และชุดส่งเพื่อน
 
 | เวอร์ชัน | วันที่ไฟล์ | เนื้อหา | ลักษณะไฟล์ |
 |---|---|---|---|
+| [final1](https://github.com/Juckkajee/buseieiza55-/tree/final1) | 2026-10-02 | สิทธิ์ Dynamic, เงื่อนไขจอง, หน้าคนขับ และรายงาน 1–7 | source บน GitHub; ZIP พร้อมข้อมูลและรหัสส่งแยก |
 | [30/9/2569](https://github.com/Juckkajee/buseieiza55-/tree/30%2F9%2F2569) | 2026-09-30 | รายงานรายวัน / รายเดือน / รายปี | เว็บ Client/Server ครบชุด พัฒนาต่อจาก busv14 |
 | [busv1](https://github.com/Juckkajee/buseieiza55-/tree/busv1) | 2026-09-21 | Figma Version 12 — App.tsx | สำเนาบางไฟล์ — ไม่ใช่โปรเจกต์ครบชุด |
 | [busv2](https://github.com/Juckkajee/buseieiza55-/tree/busv2) | 2026-09-22 | Figma Version 13 — App.tsx | สำเนาบางไฟล์ — ไม่ใช่โปรเจกต์ครบชุด |

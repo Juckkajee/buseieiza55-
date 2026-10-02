@@ -52,8 +52,8 @@ export async function profile(db, kind, accountId) {
 export function allowed(user, screen, modify = false) {
   return (
     user?.kind === "employee" &&
-    (user.positionId === "ADMIN" ||
-      !!user.permissions[screen]?.[modify ? "modify" : "view"])
+    !!user.permissions[screen]?.view &&
+    (!modify || !!user.permissions[screen]?.modify)
   )
 }
 export const guard =

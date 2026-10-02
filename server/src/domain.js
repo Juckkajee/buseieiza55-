@@ -67,6 +67,16 @@ export function timestamp(value) {
 export const bangkokNow = () =>
   new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 19)
 export const epoch = (value) => new Date(value + "+07:00").getTime()
+export function assertBookingWindow(departureAt, pickupMinutes, now = Date.now()) {
+  requireThat(epoch(departureAt) + pickupMinutes * 60000 - now >= 20 * 60000,
+    "ต้องจองล่วงหน้าอย่างน้อย 20 นาทีก่อนรถถึงจุดขึ้น", 409)
+}
+export function assertSeatAllowance(existing, requested) {
+  requireThat(existing + requested <= 4, "ผู้ใช้หนึ่งคนจองรวมได้ไม่เกิน 4 ที่นั่งต่อรอบรถ", 409)
+}
+export function assertBookingUser(userType) {
+  requireThat(["นักศึกษา", "เจ้าหน้าที่"].includes(userType), "การจองรถสำหรับนักศึกษาและเจ้าหน้าที่เท่านั้น", 403)
+}
 export const overlaps = (startA, minutesA, startB, minutesB) =>
   epoch(startA) < epoch(startB) + minutesB * 60000 &&
   epoch(startB) < epoch(startA) + minutesA * 60000

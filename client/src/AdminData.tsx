@@ -632,8 +632,8 @@ export function PermissionsPage() {
               return [
                 screen.screenId,
                 {
-                  view: position.positionId === "ADMIN" || !!p?.canView,
-                  modify: position.positionId === "ADMIN" || !!p?.canModify,
+                  view: !!p?.canView,
+                  modify: !!p?.canModify,
                 },
               ]
             }),
@@ -749,7 +749,7 @@ export function PermissionsPage() {
                           mode === "view" ? "ดูข้อมูล" : "แก้ไขข้อมูล"
                         }`}
                         disabled={
-                          !loaded || !editable || p.positionId === "ADMIN" || action.busy
+                          !loaded || !editable || action.busy
                         }
                         className={`relative inline-block w-10 h-6 border transition-colors disabled:cursor-not-allowed ${
                           checked
@@ -792,7 +792,7 @@ export function PermissionsPage() {
         </table>
       </div>
       <p className="text-xs text-[#888] mt-3">
-        Admin มีสิทธิ์ทุกหน้าเสมอ · การเปิดสิทธิ์แก้ไขจะเปิดสิทธิ์ดูข้อมูลด้วย
+        ทุกตำแหน่งรวมถึง Admin แก้สิทธิ์ได้ · การเปิดสิทธิ์แก้ไขจะเปิดสิทธิ์ดูข้อมูลด้วย · ต้องเหลือผู้จัดการสิทธิ์อย่างน้อยหนึ่งคน
       </p>
       <button
         disabled={!loaded || !editable || action.busy}
@@ -804,7 +804,6 @@ export function PermissionsPage() {
             void action.run(async () => {
               await api("/permissions", "PUT", {
                 positions: Object.entries(draft)
-                  .filter(([id]) => id !== "ADMIN")
                   .map(([positionId, value]) => ({
                     positionId,
                     permissions: Object.entries(value).map(([screenId, p]) => ({

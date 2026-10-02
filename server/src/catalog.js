@@ -218,7 +218,7 @@ export function catalogRoutes(app) {
     ),
   )
   app.get("/api/trips", async (req, res) =>
-    res.json(await read((db) => trips(db, date(req.query.date), req.user))),
+    res.json(await read((db) => trips(db, date(req.query.date), req.query.mine === "1" && req.user.kind === "employee" ? {...req.user, role:"driver"} : req.user))),
   )
   app.get("/api/trips/:id/seats", async (req, res) =>
     res.json(
@@ -720,13 +720,14 @@ export function catalogRoutes(app) {
         "มีตำแหน่งซ้ำ",
       )
       await transaction(async (db) => {
+        await db.execute("LOCK TABLE BUS_POSITION_PERMISSIONS IN EXCLUSIVE MODE")
         for (const entry of [...positions].sort((a, b) =>
           String(a.positionId).localeCompare(String(b.positionId)),
         )) {
           const positionId = text(entry.positionId, "รหัสตำแหน่ง", 40)
           requireThat(
-            positionId !== "ADMIN" && Array.isArray(entry.permissions),
-            "ไม่สามารถแก้ไขสิทธิ์ Admin หรือข้อมูลไม่ถูกต้อง",
+            Array.isArray(entry.permissions),
+            "รูปแบบสิทธิ์ไม่ถูกต้อง",
           )
           requireThat(
             (
@@ -759,6 +760,7 @@ export function catalogRoutes(app) {
             )
           }
         }
+        await assertPermissionManager(db)
       })
       res.json({ ok: true })
     },
@@ -767,9 +769,9 @@ export function catalogRoutes(app) {
     "/api/permissions/:id",
     guard("admin-permissions", true),
     async (req, res) => {
-      requireThat(req.params.id !== "ADMIN", "สิทธิ์ Admin ไม่สามารถเปลี่ยนได้")
       requireThat(Array.isArray(req.body.permissions), "รูปแบบสิทธิ์ไม่ถูกต้อง")
       await transaction(async (db) => {
+        await db.execute("LOCK TABLE BUS_POSITION_PERMISSIONS IN EXCLUSIVE MODE")
         const positionId = req.params.id
         requireThat(
           (
@@ -795,6 +797,7 @@ export function catalogRoutes(app) {
             { permissionId: id("P"), positionId, screenId, canView, canModify },
           )
         }
+        await assertPermissionManager(db)
       })
       res.json({ ok: true })
     },
@@ -861,4 +864,9 @@ async function assertExistingTripClashes(db, routeId) {
           409,
         )
     }
+}
+
+async function assertPermissionManager(db) {
+  const [row] = await query(db, "SELECT COUNT(*) n FROM BUS_EMPLOYEES e JOIN BUS_POSITION_PERMISSIONS p ON p.position_id=e.position_id WHERE p.screen_id='admin-permissions' AND p.can_view=1 AND p.can_modify=1")
+  requireThat(row.n > 0, "ต้องเหลือพนักงานอย่างน้อยหนึ่งคนที่ดูและแก้ไขสิทธิ์ได้ เพื่อไม่ให้ระบบถูกล็อก", 409)
 }

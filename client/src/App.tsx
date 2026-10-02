@@ -69,10 +69,10 @@ function Content() {
     setPage(
       u.role === "user"
         ? "booking"
-        : u.role === "driver"
+        : u.role === "driver" && u.permissions.driver?.view
           ? "driver"
           : nav.find(
-              ([id]) => u.positionId === "ADMIN" || u.permissions[id]?.view,
+              ([id]) => u.permissions[id]?.view,
             )?.[0] || "none",
     )
   }
@@ -154,11 +154,10 @@ function Content() {
         ]
       : nav.filter(
           ([id]) =>
-            (id !== "driver" || user.role === "driver") &&
-            (user.positionId === "ADMIN" || user.permissions[id]?.view),
+            user.permissions[id]?.view,
         )
   const can = (id: string) =>
-    user.positionId === "ADMIN" || !!user.permissions[id]?.modify
+    !!user.permissions[id]?.view && !!user.permissions[id]?.modify
   const render = () => {
     if (!entries.some(([id]) => id === page))
       return (

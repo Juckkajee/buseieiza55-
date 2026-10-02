@@ -1,17 +1,13 @@
 {
-  "tag": "30/9/2569",
-  "title": "รายงานรายวัน / รายเดือน / รายปี",
-  "savedDate": "2026-09-30",
+  "version": "final1",
+  "branch": "final1",
+  "title": "Requirement pages 1–9, seven reports and complete local package",
+  "savedDate": "2026-10-02",
   "kind": "git-development",
-  "basedOnTag": "busv14",
-  "sources": [
-    {
-      "file": "deliverables/MUT-Shuttle-Web-2026-09-30-report-periods.zip",
-      "sha256": "d52335cb33ea3599b36f812dfc897a2538bc15e5c4573610105be27261bfa757"
-    }
-  ],
-  "publicationChanges": [
-    "Updated README, version index and provenance",
-    "Regenerated manifest from staged Git file contents"
+  "basedOnTag": "30/9/2569",
+  "privatePackage": "deliverables/final1-full-private.zip",
+  "notes": [
+    "GitHub excludes credentials and database snapshots",
+    "Private ZIP includes server/client dependencies, Oracle snapshot and credentials; no Docker"
   ]
 }
